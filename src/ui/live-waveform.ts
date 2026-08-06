@@ -1,3 +1,4 @@
+import type { LiveTimingState } from '../halacha/live-timing';
 import { peakFromTimeDomain } from '../audio/capture';
 
 export interface LiveWaveformOptions {
@@ -5,13 +6,9 @@ export interface LiveWaveformOptions {
   waveColor?: string;
   levelColor?: string;
   historyColor?: string;
+  getTiming?: () => LiveTimingState | null;
 }
 
-/**
- * Live dual-view waveform:
- * - Top: scrolling peak history (what you've blown so far)
- * - Bottom: current instant oscilloscope + level meter
- */
 export class LiveWaveform {
   private rafId = 0;
   private peaks: number[] = [];
@@ -19,6 +16,7 @@ export class LiveWaveform {
   private readonly waveColor: string;
   private readonly levelColor: string;
   private readonly historyColor: string;
+  private readonly getTiming?: () => LiveTimingState | null;
   private active = false;
 
   constructor(
@@ -30,6 +28,7 @@ export class LiveWaveform {
     this.waveColor = options.waveColor ?? '#60a5fa';
     this.levelColor = options.levelColor ?? '#4ade80';
     this.historyColor = options.historyColor ?? '#f87171';
+    this.getTiming = options.getTiming;
     this.peaks = new Array(this.historyColumns).fill(0);
   }
 
@@ -63,9 +62,7 @@ export class LiveWaveform {
     const peak = peakFromTimeDomain(buffer);
 
     this.peaks.push(peak);
-    if (this.peaks.length > this.historyColumns) {
-      this.peaks.shift();
-    }
+    if (this.peaks.length > this.historyColumns) this.peaks.shift();
 
     const dpr = window.devicePixelRatio || 1;
     const width = this.canvas.clientWidth;
@@ -79,14 +76,16 @@ export class LiveWaveform {
     ctx.fillStyle = '#0f1628';
     ctx.fillRect(0, 0, width, height);
 
-    const historyH = Math.floor(height * 0.45);
-    const scopeH = height - historyH - 8;
-    const scopeY = historyH + 8;
+    const timing = this.getTiming?.();
+    const historyH = Math.floor(height * 0.4);
+    const scopeH = height - historyH - 36;
+    const scopeY = historyH + 4;
 
     this.drawHistory(ctx, width, historyH, peak);
     this.drawScope(ctx, width, scopeH, scopeY, buffer);
-    this.drawLevelMeter(ctx, width, peak);
+    this.drawLevelMeter(ctx, width, peak, timing);
     this.drawRecBadge(ctx, peak);
+    if (timing) this.drawTimingBar(ctx, width, height - 28, timing);
   }
 
   private drawHistory(
@@ -97,9 +96,7 @@ export class LiveWaveform {
   ): void {
     ctx.fillStyle = '#1a2744';
     ctx.fillRect(0, 0, width, height);
-
     ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, height / 2);
     ctx.lineTo(width, height / 2);
@@ -107,21 +104,14 @@ export class LiveWaveform {
 
     const colW = width / this.historyColumns;
     ctx.fillStyle = this.historyColor + 'cc';
-
     for (let i = 0; i < this.peaks.length; i++) {
-      const p = this.peaks[i];
-      const barH = p * height * 0.92;
-      const x = i * colW;
-      ctx.fillRect(x, (height - barH) / 2, Math.max(colW, 1), barH);
+      const barH = this.peaks[i] * height * 0.92;
+      ctx.fillRect(i * colW, (height - barH) / 2, Math.max(colW, 1), barH);
     }
-
-    ctx.fillStyle = '#64748b';
-    ctx.font = '10px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Live history →', 6, 12);
 
     if (currentPeak > 0.02) {
       ctx.fillStyle = this.levelColor;
+      ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'right';
       ctx.fillText(`${(currentPeak * 100).toFixed(0)}%`, width - 6, 12);
     }
@@ -136,15 +126,7 @@ export class LiveWaveform {
   ): void {
     ctx.fillStyle = '#1a2744';
     ctx.fillRect(0, y, width, height);
-
     const mid = y + height / 2;
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, mid);
-    ctx.lineTo(width, mid);
-    ctx.stroke();
-
     const step = timeData.length / width;
     ctx.strokeStyle = this.waveColor;
     ctx.lineWidth = 1.5;
@@ -156,25 +138,72 @@ export class LiveWaveform {
       else ctx.lineTo(x, py);
     }
     ctx.stroke();
-
-    ctx.fillStyle = '#64748b';
-    ctx.font = '10px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('Now', 6, y + 12);
   }
 
-  private drawLevelMeter(ctx: CanvasRenderingContext2D, width: number, peak: number): void {
+  private drawLevelMeter(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    peak: number,
+    timing: LiveTimingState | null | undefined,
+  ): void {
     const barW = width - 16;
-    const barH = 4;
     const x = 8;
     const y = 4;
-
     ctx.fillStyle = '#243352';
-    ctx.fillRect(x, y, barW, barH);
-
-    const fillW = barW * Math.min(peak * 1.2, 1);
+    ctx.fillRect(x, y, barW, 4);
     ctx.fillStyle = peak > 0.02 ? this.levelColor : '#475569';
-    ctx.fillRect(x, y, fillW, barH);
+    ctx.fillRect(x, y, barW * Math.min(peak * 1.2, 1), 4);
+
+    if (timing && timing.targetIdealSec > 0) {
+      const minX = x + (timing.targetMinSec / timing.targetIdealSec) * barW * 0.85;
+      const maxX = x + (timing.targetMaxSec / timing.targetIdealSec) * barW * 0.85;
+      ctx.strokeStyle = '#4ade8066';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(minX, y);
+      ctx.lineTo(minX, y + 4);
+      ctx.moveTo(maxX, y);
+      ctx.lineTo(maxX, y + 4);
+      ctx.stroke();
+    }
+  }
+
+  private drawTimingBar(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    y: number,
+    timing: LiveTimingState,
+  ): void {
+    const pad = 8;
+    const barW = width - pad * 2;
+    const h = 20;
+
+    ctx.fillStyle = '#1a2744';
+    ctx.fillRect(pad, y, barW, h);
+
+    const fillW = barW * Math.min(timing.progress, 1);
+    const colors: Record<string, string> = {
+      waiting: '#64748b',
+      building: '#60a5fa',
+      too_short: '#fbbf24',
+      good: '#4ade80',
+      too_long: '#f87171',
+    };
+    ctx.fillStyle = colors[timing.status] ?? '#60a5fa';
+    ctx.fillRect(pad, y, fillW, h);
+
+    const idealX = pad + barW * Math.min(timing.targetIdealSec / timing.targetMaxSec, 1);
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(idealX, y);
+    ctx.lineTo(idealX, y + h);
+    ctx.stroke();
+
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(timing.message, width / 2, y + 14);
   }
 
   private drawRecBadge(ctx: CanvasRenderingContext2D, peak: number): void {
@@ -183,13 +212,12 @@ export class LiveWaveform {
     ctx.beginPath();
     ctx.arc(14, 22, 5, 0, Math.PI * 2);
     ctx.fill();
-
     ctx.fillStyle = '#fca5a5';
     ctx.font = 'bold 10px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('REC', 24, 26);
 
-    if (peak < 0.015) {
+    if (peak < 0.015 && !this.getTiming?.()) {
       ctx.fillStyle = '#64748b';
       ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'center';
@@ -201,8 +229,9 @@ export class LiveWaveform {
 export function attachLiveWaveform(
   canvas: HTMLCanvasElement,
   getAnalyser: () => AnalyserNode | null,
+  options?: LiveWaveformOptions,
 ): () => void {
-  const live = new LiveWaveform(canvas, getAnalyser);
+  const live = new LiveWaveform(canvas, getAnalyser, options);
   live.start();
   return () => live.stop();
 }

@@ -43,18 +43,16 @@ function renderHome(root: HTMLElement, navigate: (v: View) => void): void {
   const shell = el('div', 'home');
   shell.appendChild(el('h1', '', 'Shofar Trainer'));
   shell.appendChild(
-    el('p', 'tagline', 'Practice the Rosh Hashana seder with halachic timing feedback'),
+    el('p', 'tagline', 'Makrei-style guided practice with live timing feedback'),
   );
 
   if (unit) {
-    shell.appendChild(el('p', 'unit-badge', `Teruah unit: ${(unit * 1000).toFixed(0)} ms`));
-  } else {
-    shell.appendChild(el('p', 'warn', 'Start with calibration for accurate timing checks.'));
+    shell.appendChild(el('p', 'unit-badge', `Last unit: ${(unit * 1000).toFixed(0)} ms`));
   }
 
   const nav = el('nav', 'home-nav');
-  nav.appendChild(makeNavBtn('Calibrate', () => navigate('calibrate')));
-  nav.appendChild(makeNavBtn('Practice', () => navigate('practice')));
+  nav.appendChild(makeNavBtn('Practice (guided)', () => navigate('practice')));
+  nav.appendChild(makeNavBtn('Calibrate manually', () => navigate('calibrate')));
   nav.appendChild(makeNavBtn('History', () => navigate('history')));
   shell.appendChild(nav);
 
