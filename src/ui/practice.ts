@@ -3,7 +3,7 @@ import type { SetGroup } from '../halacha/seder';
 import { analyzeRecording, type DetailedAnalysisResult } from '../audio/analyze';
 import { AudioRecorder } from '../audio/capture';
 import { getUnitDuration, saveSession } from '../store/sessions';
-import { button, el, renderAnalysisFeedback, renderWaveform, speak } from './components';
+import { button, el, renderAnalysisFeedback, renderWaveform, speak, speakAndWait } from './components';
 import { attachLiveWaveform } from './live-waveform';
 
 export interface PracticeMountOptions {
@@ -14,6 +14,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let setIndex = 0;
   let recorder: AudioRecorder | null = null;
   let recording = false;
+  let preparing = false;
   let lastSamples: Float32Array | null = null;
   let lastAnalysis: DetailedAnalysisResult | null = null;
   let stopLive: (() => void) | null = null;
@@ -50,8 +51,12 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     setCard.appendChild(patternHint);
     container.appendChild(setCard);
 
-    const callout = el('div', recording ? 'callout recording' : 'callout');
-    callout.textContent = recording ? 'Recording… blow the full set' : `Blow: ${set.label}`;
+    const callout = el('div', recording ? 'callout recording' : preparing ? 'callout preparing' : 'callout');
+    callout.textContent = preparing
+      ? 'Callout… get ready to blow'
+      : recording
+        ? 'Recording… blow the full set'
+        : `Blow: ${set.label}`;
     container.appendChild(callout);
 
     const canvas = el('canvas', recording ? 'waveform live' : 'waveform');
@@ -77,14 +82,18 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
     const controls = el('div', 'controls');
     const callBtn = button('Call out', 'btn secondary');
-    const recBtn = button(recording ? 'Stop & Analyze' : 'Record set', recording ? 'btn danger' : 'btn primary');
+    const recBtn = button(
+      preparing ? 'Starting…' : recording ? 'Stop & Analyze' : 'Record set',
+      recording ? 'btn danger' : 'btn primary',
+    );
     const nextBtn = button('Next set', 'btn');
     const prevBtn = button('Previous', 'btn secondary');
     const backBtn = button('Back', 'btn secondary');
 
-    callBtn.disabled = recording;
-    nextBtn.disabled = recording;
-    prevBtn.disabled = recording;
+    callBtn.disabled = recording || preparing;
+    recBtn.disabled = preparing;
+    nextBtn.disabled = recording || preparing;
+    prevBtn.disabled = recording || preparing;
 
     callBtn.addEventListener('click', () => speak(set.label));
     recBtn.addEventListener('click', () => void toggleRecord(set, feedback, canvas));
@@ -133,10 +142,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     if (!unit) return;
 
     if (!recording) {
+      preparing = true;
+      render();
+      await speakAndWait(set.label);
+      preparing = false;
       recorder = new AudioRecorder();
       await recorder.start();
       recording = true;
-      speak(set.label);
       render();
       return;
     }

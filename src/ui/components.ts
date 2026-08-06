@@ -139,6 +139,31 @@ export function speak(text: string): void {
   window.speechSynthesis.speak(u);
 }
 
+/** Speak callout, wait for finish, then brief silence before mic should open */
+export function speakAndWait(text: string, postDelayMs = 500): Promise<void> {
+  return new Promise((resolve) => {
+    if (!('speechSynthesis' in window)) {
+      setTimeout(resolve, postDelayMs);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    let settled = false;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      setTimeout(resolve, postDelayMs);
+    };
+
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.9;
+    u.onend = done;
+    u.onerror = done;
+    window.speechSynthesis.speak(u);
+    setTimeout(done, 6000);
+  });
+}
+
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
