@@ -1,4 +1,5 @@
-import type { AnalysisResult, BlastSegment } from '../halacha/types';
+import type { AnalysisResult } from '../halacha/types';
+import type { DetailedAnalysisResult } from '../audio/analyze';
 
 const COLORS: Record<string, string> = {
   tekiah: '#4ade80',
@@ -9,11 +10,18 @@ const COLORS: Record<string, string> = {
   default: '#94a3b8',
 };
 
+const LABELS: Record<string, string> = {
+  tekiah: 'T',
+  shevarim: 'Sh',
+  teruah: 'Tr',
+  shevarim_teruah: 'Sh+Tr',
+  tekiah_gedolah: 'T↑',
+};
+
 export function renderWaveform(
   canvas: HTMLCanvasElement,
   samples: Float32Array,
-  segments: BlastSegment[],
-  segmentColors?: Map<number, string>,
+  analysis: DetailedAnalysisResult | null,
 ): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -31,28 +39,49 @@ export function renderWaveform(
   const mid = height / 2;
   const step = Math.max(1, Math.floor(samples.length / width));
 
-  ctx.strokeStyle = '#334155';
+  ctx.strokeStyle = '#475569';
   ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = 0; x < width; x++) {
     const i = x * step;
-    const y = mid - samples[i] * (height * 0.4);
+    const y = mid - samples[i] * (height * 0.42);
     if (x === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
 
-  for (let si = 0; si < segments.length; si++) {
-    const seg = segments[si];
-    const x0 = (seg.startSample / samples.length) * width;
-    const x1 = (seg.endSample / samples.length) * width;
-    const color = segmentColors?.get(si) ?? COLORS.default;
-    ctx.fillStyle = color + '33';
-    ctx.fillRect(x0, 0, x1 - x0, height);
+  if (!analysis) return;
+
+  for (const blast of analysis.classified) {
+    if (blast.segments.length === 0) continue;
+    const start = blast.segments[0].startSample;
+    const end = blast.segments[blast.segments.length - 1].endSample;
+    const x0 = (start / samples.length) * width;
+    const x1 = (end / samples.length) * width;
+    const color = COLORS[blast.type] ?? COLORS.default;
+    const w = Math.max(x1 - x0, 2);
+
+    ctx.fillStyle = color + '40';
+    ctx.fillRect(x0, 0, w, height);
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
-    ctx.strokeRect(x0, 0, x1 - x0, height);
+    ctx.strokeRect(x0, 0, w, height);
+
+    const label = LABELS[blast.type] ?? blast.type;
+    const count =
+      blast.type === 'shevarim' || blast.type === 'teruah'
+        ? ` (${blast.segments.length})`
+        : '';
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${label}${count}`, x0 + w / 2, 14);
   }
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Notes detected: ${analysis.noteSegments.length}`, 6, height - 6);
 }
 
 export function renderAnalysisFeedback(container: HTMLElement, result: AnalysisResult): void {
@@ -69,12 +98,21 @@ export function renderAnalysisFeedback(container: HTMLElement, result: AnalysisR
     container.appendChild(ratio);
   }
 
+  if ('noteSegments' in result && Array.isArray((result as DetailedAnalysisResult).noteSegments)) {
+    const notes = (result as DetailedAnalysisResult).noteSegments;
+    const noteLine = document.createElement('p');
+    noteLine.className = 'feedback-notes';
+    noteLine.textContent = `Detected ${notes.length} note(s): ${notes.map((n, i) => `#${i + 1} ${(n.durationSec * 1000).toFixed(0)}ms`).join(', ')}`;
+    container.appendChild(noteLine);
+  }
+
   if (result.classified.length > 0) {
     const detected = document.createElement('ul');
     detected.className = 'feedback-detected';
     for (const c of result.classified) {
       const li = document.createElement('li');
-      li.textContent = `${c.type}: ${c.segments.length} segment(s), ${c.totalDurationSec.toFixed(2)}s total`;
+      const label = LABELS[c.type] ?? c.type;
+      li.textContent = `${label}: ${c.segments.length} note(s), ${c.totalDurationSec.toFixed(2)}s total`;
       detected.appendChild(li);
     }
     container.appendChild(detected);
@@ -115,3 +153,5 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 export function button(label: string, className = 'btn'): HTMLButtonElement {
   return el('button', className, label);
 }
+
+export type { DetailedAnalysisResult };

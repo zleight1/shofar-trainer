@@ -1,42 +1,46 @@
-import type { AnalysisResult } from '../halacha/types';
-import { buildClassifiedFromSetPattern, scoreRecording } from '../halacha/rules';
+import type { AnalysisResult, BlastSegment } from '../halacha/types';
+import { buildClassifiedFromNotes, scoreRecording } from '../halacha/rules';
 import type { SetGroup } from '../halacha/seder';
-import { computeEnvelope, normalizeEnvelope, smoothEnvelope } from './envelope';
-import { segmentsFromEnvelope } from './onsets';
+import { prepareAnalysisEnvelope } from './envelope';
+import { segmentRecording } from './onsets';
+
+export interface DetailedAnalysisResult extends AnalysisResult {
+  rawSegments: BlastSegment[];
+  noteSegments: BlastSegment[];
+}
 
 export function analyzeRecording(
   samples: Float32Array,
   sampleRate: number,
   unitSec: number,
   pattern: SetGroup['pattern'],
-): AnalysisResult {
-  const envelope = smoothEnvelope(normalizeEnvelope(computeEnvelope(samples, sampleRate)));
-  const segments = segmentsFromEnvelope(envelope, sampleRate, {
-    threshold: 0.1,
-    minBlastMs: 35,
-    minGapMs: 25,
-  });
-  const classified = buildClassifiedFromSetPattern(pattern, segments, unitSec);
-  return scoreRecording(classified, unitSec);
+): DetailedAnalysisResult {
+  const envelope = prepareAnalysisEnvelope(samples, sampleRate);
+  const { rawSegments, noteSegments } = segmentRecording(envelope, sampleRate, unitSec);
+  const classified = buildClassifiedFromNotes(pattern, noteSegments, unitSec);
+  const scored = scoreRecording(classified, unitSec);
+
+  return {
+    ...scored,
+    rawSegments,
+    noteSegments,
+  };
 }
 
 export function analyzeCalibration(
   samples: Float32Array,
   sampleRate: number,
 ): number {
-  const envelope = smoothEnvelope(normalizeEnvelope(computeEnvelope(samples, sampleRate)));
-  const segments = segmentsFromEnvelope(envelope, sampleRate, {
-    threshold: 0.1,
-    minBlastMs: 30,
-    minGapMs: 20,
-  });
+  const envelope = prepareAnalysisEnvelope(samples, sampleRate);
+  const { noteSegments, rawSegments } = segmentRecording(envelope, sampleRate, 0.1);
+
+  const segments = noteSegments.length > 0 ? noteSegments : rawSegments;
   if (segments.length === 0) {
-    const active = envelope.filter((v) => v > 0.1);
-    if (active.length === 0) return 0.15;
-    return active.length / sampleRate / 9;
+    return 0.12;
   }
+
   const durations = segments.map((s) => s.durationSec).sort((a, b) => a - b);
   return durations[Math.floor(durations.length / 2)];
 }
 
-export { computeEnvelope, normalizeEnvelope, smoothEnvelope, segmentsFromEnvelope };
+export { prepareAnalysisEnvelope, segmentRecording };

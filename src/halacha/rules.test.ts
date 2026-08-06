@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildClassifiedFromNotes,
   buildClassifiedFromSetPattern,
   checkShevarim,
   checkTekiahRatio,
@@ -10,7 +11,8 @@ import {
 import type { BlastSegment, ClassifiedBlast } from './types';
 
 function seg(durationSec: number, start = 0): BlastSegment {
-  return { startSample: start, endSample: start + 1000, durationSec };
+  const samples = Math.floor(durationSec * 44100);
+  return { startSample: start, endSample: start + samples, durationSec };
 }
 
 describe('computeTekiahRatio', () => {
@@ -83,6 +85,34 @@ describe('scoreRecording', () => {
       { type: 'tekiah', segments: [seg(0.9)], totalDurationSec: 0.9 },
     ];
     expect(scoreRecording(classified, 0.1).passed).toBe(true);
+  });
+});
+
+describe('buildClassifiedFromNotes', () => {
+  it('assigns tsh pattern positionally', () => {
+    const unit = 0.1;
+    const notes = [
+      seg(0.9, 0),
+      seg(0.3, 50000),
+      seg(0.3, 70000),
+      seg(0.3, 90000),
+      seg(0.85, 120000),
+    ];
+    const result = buildClassifiedFromNotes('tsh', notes, unit);
+    expect(result.map((b) => b.type)).toEqual(['tekiah', 'shevarim', 'tekiah']);
+    expect(result[1].segments).toHaveLength(3);
+  });
+
+  it('assigns tt pattern with teruah in middle', () => {
+    const unit = 0.08;
+    const notes = [
+      seg(0.8, 0),
+      ...Array.from({ length: 9 }, (_, i) => seg(0.08, 40000 + i * 5000)),
+      seg(0.75, 100000),
+    ];
+    const result = buildClassifiedFromNotes('tt', notes, unit);
+    expect(result.map((b) => b.type)).toEqual(['tekiah', 'teruah', 'tekiah']);
+    expect(result[1].segments.length).toBeGreaterThanOrEqual(9);
   });
 });
 

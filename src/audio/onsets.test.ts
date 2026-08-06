@@ -1,28 +1,42 @@
 import { describe, expect, it } from 'vitest';
 import { generateTestSignal } from './capture';
-import { computeEnvelope, normalizeEnvelope, smoothEnvelope } from './envelope';
-import { detectOnsets, segmentsFromEnvelope } from './onsets';
+import { prepareAnalysisEnvelope } from './envelope';
+import { clusterIntoNotes, segmentRecording } from './onsets';
 
-describe('detectOnsets', () => {
-  it('finds multiple bursts in synthetic signal', () => {
+describe('segmentRecording', () => {
+  it('finds multiple teruah blasts without over-merging', () => {
     const sampleRate = 44100;
     const unit = 0.08;
     const bursts = Array.from({ length: 9 }, (_, i) => ({
-      startSec: i * (unit + 0.04),
+      startSec: 0.3 + i * (unit + 0.05),
       durationSec: unit,
     }));
     const samples = generateTestSignal(sampleRate, bursts);
-    const env = smoothEnvelope(normalizeEnvelope(computeEnvelope(samples, sampleRate)));
-    const segments = detectOnsets(env, sampleRate, { threshold: 0.08, minBlastMs: 30, minGapMs: 20 });
-    expect(segments.length).toBeGreaterThanOrEqual(7);
+    const env = prepareAnalysisEnvelope(samples, sampleRate);
+    const { noteSegments } = segmentRecording(env, sampleRate, unit);
+    expect(noteSegments.length).toBeGreaterThanOrEqual(7);
   });
 
-  it('finds tekiah-length sustained blast', () => {
+  it('keeps single tekiah as one note', () => {
     const sampleRate = 44100;
+    const unit = 0.1;
     const samples = generateTestSignal(sampleRate, [{ startSec: 0.2, durationSec: 0.9 }]);
-    const env = smoothEnvelope(normalizeEnvelope(computeEnvelope(samples, sampleRate)));
-    const segments = segmentsFromEnvelope(env, sampleRate);
-    expect(segments.length).toBeGreaterThanOrEqual(1);
-    expect(segments[0].durationSec).toBeGreaterThan(0.5);
+    const env = prepareAnalysisEnvelope(samples, sampleRate);
+    const { noteSegments } = segmentRecording(env, sampleRate, unit);
+    expect(noteSegments.length).toBeGreaterThanOrEqual(1);
+    expect(noteSegments[0].durationSec).toBeGreaterThan(0.6);
+  });
+});
+
+describe('clusterIntoNotes', () => {
+  it('does not merge two short teruah blasts', () => {
+    const sampleRate = 44100;
+    const unit = 0.1;
+    const raw = [
+      { startSample: 0, endSample: 4000, durationSec: 0.08 },
+      { startSample: 8000, endSample: 12000, durationSec: 0.08 },
+    ];
+    const notes = clusterIntoNotes(raw, sampleRate, unit);
+    expect(notes).toHaveLength(2);
   });
 });

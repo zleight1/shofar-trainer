@@ -178,6 +178,86 @@ export function partitionShevarimTeruah(
   return { shevarim, teruah };
 }
 
+/** Build classified blasts from clustered notes using known set pattern (positional). */
+export function buildClassifiedFromNotes(
+  pattern: 'tst' | 'tsh' | 'tt' | 'gedolah',
+  notes: BlastSegment[],
+  unitSec: number,
+): ClassifiedBlast[] {
+  if (notes.length === 0) return [];
+
+  if (pattern === 'gedolah') {
+    const total = spanDuration(notes);
+    return [{ type: 'tekiah_gedolah', segments: notes, totalDurationSec: total }];
+  }
+
+  if (notes.length === 1) {
+    return [{ type: 'tekiah', segments: notes, totalDurationSec: notes[0].durationSec }];
+  }
+
+  const first = notes[0];
+  const last = notes[notes.length - 1];
+  const middle = notes.slice(1, -1);
+
+  if (pattern === 'tsh') {
+    const shNotes = middle.length > 0 ? middle : notes.slice(1);
+    return [
+      blast('tekiah', [first]),
+      blast('shevarim', shNotes.length >= 3 ? shNotes.slice(0, 3) : shNotes),
+      blast('tekiah', [last]),
+    ].filter((b) => b.segments.length > 0);
+  }
+
+  if (pattern === 'tt') {
+    const trNotes = middle.length > 0 ? middle : notes.slice(1, -1);
+    return [
+      blast('tekiah', [first]),
+      blast('teruah', trNotes),
+      blast('tekiah', [last]),
+    ].filter((b) => b.segments.length > 0);
+  }
+
+  // tst — split middle into shevarim (medium notes) + teruah (short notes)
+  const mediumThreshold = unitSec * 1.6;
+  const shevarimNotes: BlastSegment[] = [];
+  const teruahNotes: BlastSegment[] = [];
+
+  for (const note of middle) {
+    if (shevarimNotes.length < 3 && note.durationSec >= mediumThreshold) {
+      shevarimNotes.push(note);
+    } else {
+      teruahNotes.push(note);
+    }
+  }
+
+  if (shevarimNotes.length === 0 && middle.length >= 3) {
+    shevarimNotes.push(...middle.slice(0, 3));
+    teruahNotes.push(...middle.slice(3));
+  } else if (teruahNotes.length === 0 && middle.length > shevarimNotes.length) {
+    teruahNotes.push(...middle.filter((n) => !shevarimNotes.includes(n)));
+  }
+
+  const result: ClassifiedBlast[] = [blast('tekiah', [first])];
+  if (shevarimNotes.length > 0) result.push(blast('shevarim', shevarimNotes));
+  if (teruahNotes.length > 0) result.push(blast('teruah', teruahNotes));
+  result.push(blast('tekiah', [last]));
+  return result.filter((b) => b.segments.length > 0);
+}
+
+function blast(type: ClassifiedBlast['type'], segments: BlastSegment[]): ClassifiedBlast {
+  return { type, segments, totalDurationSec: spanDuration(segments) };
+}
+
+function spanDuration(segments: BlastSegment[]): number {
+  if (segments.length === 0) return 0;
+  const sampleRateGuess = segments[0].durationSec > 0
+    ? (segments[0].endSample - segments[0].startSample) / segments[0].durationSec
+    : 44100;
+  const start = segments[0].startSample;
+  const end = segments[segments.length - 1].endSample;
+  return (end - start) / sampleRateGuess;
+}
+
 export function buildClassifiedFromSetPattern(
   pattern: 'tst' | 'tsh' | 'tt' | 'gedolah',
   segments: BlastSegment[],

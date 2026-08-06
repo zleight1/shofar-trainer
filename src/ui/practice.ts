@@ -1,6 +1,6 @@
 import { SET_GROUPS } from '../halacha/seder';
 import type { SetGroup } from '../halacha/seder';
-import { analyzeRecording } from '../audio/analyze';
+import { analyzeRecording, type DetailedAnalysisResult } from '../audio/analyze';
 import { AudioRecorder } from '../audio/capture';
 import { getUnitDuration, saveSession } from '../store/sessions';
 import { button, el, renderAnalysisFeedback, renderWaveform, speak } from './components';
@@ -14,7 +14,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let recorder: AudioRecorder | null = null;
   let recording = false;
   let lastSamples: Float32Array | null = null;
-  let lastSampleRate = 44100;
+  let lastAnalysis: DetailedAnalysisResult | null = null;
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
@@ -47,11 +47,20 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     container.appendChild(callout);
 
     const canvas = el('canvas', 'waveform');
-    canvas.height = 120;
+    canvas.height = 160;
     container.appendChild(canvas);
+
+    const legend = el('div', 'waveform-legend');
+    legend.innerHTML =
+      '<span class="leg-t">T Tekiah</span><span class="leg-sh">Sh Shevarim</span><span class="leg-tr">Tr Teruah</span>';
+    container.appendChild(legend);
 
     const feedback = el('div', 'feedback');
     container.appendChild(feedback);
+
+    if (lastAnalysis) {
+      renderAnalysisFeedback(feedback, lastAnalysis);
+    }
 
     const controls = el('div', 'controls');
     const callBtn = button('Call out', 'btn secondary');
@@ -65,12 +74,16 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     nextBtn.addEventListener('click', () => {
       if (setIndex < SET_GROUPS.length - 1) {
         setIndex++;
+        lastAnalysis = null;
+        lastSamples = null;
         render();
       }
     });
     prevBtn.addEventListener('click', () => {
       if (setIndex > 0) {
         setIndex--;
+        lastAnalysis = null;
+        lastSamples = null;
         render();
       }
     });
@@ -79,11 +92,8 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     controls.append(recBtn, callBtn, prevBtn, nextBtn, backBtn);
     container.appendChild(controls);
 
-    if (lastSamples) {
-      const allSegments = analyzeRecording(lastSamples, lastSampleRate, unit, set.pattern).classified.flatMap(
-        (c) => c.segments,
-      );
-      renderWaveform(canvas, lastSamples, allSegments);
+    if (lastSamples && lastAnalysis) {
+      renderWaveform(canvas, lastSamples, lastAnalysis);
     }
   }
 
@@ -107,22 +117,19 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     recording = false;
     const result = recorder!.stop();
     lastSamples = result.samples;
-    lastSampleRate = result.sampleRate;
     recorder = null;
 
-    const analysis = analyzeRecording(result.samples, result.sampleRate, unit, set.pattern);
-    renderAnalysisFeedback(feedbackEl, analysis);
-
-    const allSegments = analysis.classified.flatMap((c) => c.segments);
-    renderWaveform(canvas, result.samples, allSegments);
+    lastAnalysis = analyzeRecording(result.samples, result.sampleRate, unit, set.pattern);
+    renderAnalysisFeedback(feedbackEl, lastAnalysis);
+    renderWaveform(canvas, result.samples, lastAnalysis);
 
     saveSession({
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
       stepId: set.id,
-      passed: analysis.passed,
-      tekiahRatio: analysis.tekiahRatio,
-      issues: analysis.issues,
+      passed: lastAnalysis.passed,
+      tekiahRatio: lastAnalysis.tekiahRatio,
+      issues: lastAnalysis.issues,
       unitDurationSec: unit,
     });
 
