@@ -1,0 +1,21 @@
+{
+  "name": "shofar-trainer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal PWA for halachic shofar practice — seder coach and audio timing analysis",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^2.1.8"
+  }
+}
