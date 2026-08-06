@@ -4,6 +4,7 @@ import { analyzeRecording, type DetailedAnalysisResult } from '../audio/analyze'
 import { AudioRecorder } from '../audio/capture';
 import { getUnitDuration, saveSession } from '../store/sessions';
 import { button, el, renderAnalysisFeedback, renderWaveform, speak } from './components';
+import { attachLiveWaveform } from './live-waveform';
 
 export interface PracticeMountOptions {
   onBack: () => void;
@@ -15,11 +16,18 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let recording = false;
   let lastSamples: Float32Array | null = null;
   let lastAnalysis: DetailedAnalysisResult | null = null;
+  let stopLive: (() => void) | null = null;
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
 
+  function detachLive(): void {
+    stopLive?.();
+    stopLive = null;
+  }
+
   function render(): void {
+    detachLive();
     container.innerHTML = '';
     const set = SET_GROUPS[setIndex];
     const unit = getUnitDuration();
@@ -42,23 +50,28 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     setCard.appendChild(patternHint);
     container.appendChild(setCard);
 
-    const callout = el('div', 'callout');
-    callout.textContent = `Blow: ${set.label}`;
+    const callout = el('div', recording ? 'callout recording' : 'callout');
+    callout.textContent = recording ? 'Recording… blow the full set' : `Blow: ${set.label}`;
     container.appendChild(callout);
 
-    const canvas = el('canvas', 'waveform');
-    canvas.height = 160;
+    const canvas = el('canvas', recording ? 'waveform live' : 'waveform');
+    canvas.height = 200;
     container.appendChild(canvas);
 
-    const legend = el('div', 'waveform-legend');
-    legend.innerHTML =
-      '<span class="leg-t">T Tekiah</span><span class="leg-sh">Sh Shevarim</span><span class="leg-tr">Tr Teruah</span>';
-    container.appendChild(legend);
+    if (recording) {
+      const liveHint = el('p', 'live-hint', 'Top = scrolling history · Bottom = live signal');
+      container.appendChild(liveHint);
+    } else {
+      const legend = el('div', 'waveform-legend');
+      legend.innerHTML =
+        '<span class="leg-t">T Tekiah</span><span class="leg-sh">Sh Shevarim</span><span class="leg-tr">Tr Teruah</span>';
+      container.appendChild(legend);
+    }
 
     const feedback = el('div', 'feedback');
     container.appendChild(feedback);
 
-    if (lastAnalysis) {
+    if (lastAnalysis && !recording) {
       renderAnalysisFeedback(feedback, lastAnalysis);
     }
 
@@ -68,6 +81,10 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const nextBtn = button('Next set', 'btn');
     const prevBtn = button('Previous', 'btn secondary');
     const backBtn = button('Back', 'btn secondary');
+
+    callBtn.disabled = recording;
+    nextBtn.disabled = recording;
+    prevBtn.disabled = recording;
 
     callBtn.addEventListener('click', () => speak(set.label));
     recBtn.addEventListener('click', () => void toggleRecord(set, feedback, canvas));
@@ -87,12 +104,22 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
         render();
       }
     });
-    backBtn.addEventListener('click', options.onBack);
+    backBtn.addEventListener('click', () => {
+      detachLive();
+      if (recording && recorder) {
+        recorder.stop();
+        recorder = null;
+        recording = false;
+      }
+      options.onBack();
+    });
 
     controls.append(recBtn, callBtn, prevBtn, nextBtn, backBtn);
     container.appendChild(controls);
 
-    if (lastSamples && lastAnalysis) {
+    if (recording && recorder) {
+      stopLive = attachLiveWaveform(canvas, () => recorder!.getAnalyser());
+    } else if (lastSamples && lastAnalysis) {
       renderWaveform(canvas, lastSamples, lastAnalysis);
     }
   }
@@ -114,6 +141,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       return;
     }
 
+    detachLive();
     recording = false;
     const result = recorder!.stop();
     lastSamples = result.samples;
@@ -137,7 +165,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   }
 
   render();
-  return () => container.remove();
+  return () => {
+    detachLive();
+    if (recording && recorder) {
+      recorder.stop();
+    }
+    container.remove();
+  };
 }
 
 function patternDescription(pattern: SetGroup['pattern']): string {

@@ -4,13 +4,22 @@ export interface RecordingResult {
   durationSec: number;
 }
 
-/** Browser-side recorder using ScriptProcessor / AudioWorklet fallback */
+/** Browser-side recorder with AnalyserNode for live visualization */
 export class AudioRecorder {
   private context: AudioContext | null = null;
   private stream: MediaStream | null = null;
+  private analyser: AnalyserNode | null = null;
   private chunks: Float32Array[] = [];
   private recording = false;
   private sampleRate = 44100;
+
+  getAnalyser(): AnalyserNode | null {
+    return this.analyser;
+  }
+
+  isRecording(): boolean {
+    return this.recording;
+  }
 
   async start(): Promise<void> {
     this.stream = await navigator.mediaDevices.getUserMedia({
@@ -22,8 +31,17 @@ export class AudioRecorder {
     });
     this.context = new AudioContext();
     this.sampleRate = this.context.sampleRate;
+
     const source = this.context.createMediaStreamSource(this.stream);
+
+    this.analyser = this.context.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.analyser.smoothingTimeConstant = 0.45;
+
     const processor = this.context.createScriptProcessor(4096, 1, 1);
+    const silent = this.context.createGain();
+    silent.gain.value = 0;
+
     this.chunks = [];
     this.recording = true;
 
@@ -33,9 +51,13 @@ export class AudioRecorder {
       this.chunks.push(new Float32Array(input));
     };
 
+    source.connect(this.analyser);
     source.connect(processor);
-    processor.connect(this.context.destination);
+    processor.connect(silent);
+    silent.connect(this.context.destination);
+
     (this as unknown as { _processor: ScriptProcessorNode })._processor = processor;
+    (this as unknown as { _silent: GainNode })._silent = silent;
   }
 
   stop(): RecordingResult {
@@ -59,10 +81,12 @@ export class AudioRecorder {
   private cleanup(): void {
     const proc = (this as unknown as { _processor?: ScriptProcessorNode })._processor;
     proc?.disconnect();
+    this.analyser?.disconnect();
     this.stream?.getTracks().forEach((t) => t.stop());
     void this.context?.close();
     this.context = null;
     this.stream = null;
+    this.analyser = null;
   }
 }
 
@@ -76,6 +100,16 @@ export function concatSamples(chunks: Float32Array[]): Float32Array {
     offset += c.length;
   }
   return out;
+}
+
+/** Peak level 0–1 from time-domain analyser samples */
+export function peakFromTimeDomain(data: ArrayLike<number>): number {
+  let peak = 0;
+  for (let i = 0; i < data.length; i++) {
+    const abs = Math.abs(data[i]);
+    if (abs > peak) peak = abs;
+  }
+  return peak;
 }
 
 /** Generate synthetic test signal: bursts of sine at given intervals */
