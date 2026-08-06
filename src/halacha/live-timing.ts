@@ -1,5 +1,9 @@
-import type { BlastType } from './types';
-import { DEFAULT_HALACHA_CONFIG } from './types';
+import type { BlastType } from '../halacha/types';
+import {
+  clampUnit,
+  expectedDurationForType,
+  UNIT_DEFAULT_SEC,
+} from './duration-targets';
 
 export type LiveLengthStatus = 'waiting' | 'building' | 'too_short' | 'good' | 'too_long';
 
@@ -15,60 +19,16 @@ export interface LiveTimingState {
 
 export interface TimingContext {
   unitSec: number;
-  /** Closing tekiah: total middle duration in this set so far */
   middleDurationSec?: number;
-  /** Is this the second tekiah in the set */
   isClosingTekiah?: boolean;
 }
 
 export function expectedTiming(
   type: BlastType,
-  unitSec: number,
-  ctx: TimingContext = { unitSec },
+  _unitSec: number,
+  ctx: TimingContext = { unitSec: _unitSec },
 ): { minSec: number; idealSec: number; maxSec: number } {
-  const cfg = DEFAULT_HALACHA_CONFIG;
-
-  switch (type) {
-    case 'teruah':
-      return {
-        minSec: unitSec * cfg.minTeruahBlasts * 0.55,
-        idealSec: unitSec * cfg.minTeruahBlasts,
-        maxSec: unitSec * cfg.minTeruahBlasts * 1.45,
-      };
-    case 'shevarim':
-      return {
-        minSec: unitSec * cfg.minShevarimNoteUnits * cfg.shevarimNoteCount * 0.75,
-        idealSec: unitSec * cfg.minShevarimNoteUnits * cfg.shevarimNoteCount,
-        maxSec: unitSec * cfg.minShevarimNoteUnits * cfg.shevarimNoteCount * 1.35,
-      };
-    case 'tekiah':
-    case 'tekiah_gedolah':
-      if (ctx.isClosingTekiah && ctx.middleDurationSec && ctx.middleDurationSec > 0) {
-        const mid = ctx.middleDurationSec;
-        const tol = cfg.ratioTolerance;
-        return {
-          minSec: mid * (1 - tol),
-          idealSec: mid,
-          maxSec: mid * (1 + tol),
-        };
-      }
-      return {
-        minSec: unitSec * cfg.minTekiahUnits * 0.75,
-        idealSec: unitSec * cfg.minTekiahUnits,
-        maxSec: unitSec * cfg.minTekiahUnits * 1.35,
-      };
-    case 'shevarim_teruah':
-      return {
-        minSec: unitSec * cfg.minTekiahUnits * 0.75,
-        idealSec: unitSec * cfg.minTekiahUnits * 2,
-        maxSec: unitSec * cfg.minTekiahUnits * 3,
-      };
-    default: {
-      const _exhaustive: never = type;
-      void _exhaustive;
-      return { minSec: unitSec * 3, idealSec: unitSec * 9, maxSec: unitSec * 12 };
-    }
-  }
+  return expectedDurationForType(type, ctx.middleDurationSec, ctx.isClosingTekiah);
 }
 
 export function liveTimingState(
@@ -96,7 +56,7 @@ export function liveTimingState(
   if (elapsedSec < minSec * 0.85) {
     return {
       status: 'building',
-      message: `Keep going — aim ~${idealSec.toFixed(1)}s (${(idealSec * 1000).toFixed(0)} ms)`,
+      message: `Keep going — aim ~${idealSec.toFixed(0)}s`,
       elapsedSec,
       targetMinSec: minSec,
       targetIdealSec: idealSec,
@@ -108,7 +68,7 @@ export function liveTimingState(
   if (elapsedSec < minSec) {
     return {
       status: 'too_short',
-      message: `Almost — a bit longer (${elapsedSec.toFixed(1)}s / ~${idealSec.toFixed(1)}s)`,
+      message: `Almost — a bit longer (${elapsedSec.toFixed(1)}s / ~${idealSec.toFixed(0)}s)`,
       elapsedSec,
       targetMinSec: minSec,
       targetIdealSec: idealSec,
@@ -139,3 +99,24 @@ export function liveTimingState(
     progress,
   };
 }
+
+/** Score a single guided blast against duration targets (for step feedback) */
+export function scoreSingleBlastDuration(
+  type: BlastType,
+  durationSec: number,
+  ctx: TimingContext,
+): { ok: boolean; message: string } {
+  const { minSec, idealSec, maxSec } = expectedTiming(type, ctx.unitSec, ctx);
+  if (durationSec < minSec * 0.5) {
+    return { ok: false, message: `Very short (${durationSec.toFixed(1)}s) — aim ~${idealSec.toFixed(0)}s` };
+  }
+  if (durationSec < minSec) {
+    return { ok: false, message: `A bit short (${durationSec.toFixed(1)}s / ~${idealSec.toFixed(0)}s)` };
+  }
+  if (durationSec > maxSec * 1.2) {
+    return { ok: false, message: `Long (${durationSec.toFixed(1)}s) — aim ~${idealSec.toFixed(0)}s` };
+  }
+  return { ok: true, message: `${durationSec.toFixed(1)}s — in range` };
+}
+
+export { clampUnit, UNIT_DEFAULT_SEC };

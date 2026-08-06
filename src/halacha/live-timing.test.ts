@@ -1,27 +1,65 @@
 import { describe, expect, it } from 'vitest';
-import { expectedTiming, liveTimingState } from './live-timing';
+import { inferUnitFromBlasts } from '../audio/analyze-blast';
+import type { ClassifiedBlast } from '../halacha/types';
+import { expectedDurationForType, clampUnit } from './duration-targets';
+import { liveTimingState } from './live-timing';
 
-describe('liveTimingState', () => {
-  const unit = 0.1;
+describe('clampUnit', () => {
+  it('clamps wild values', () => {
+    expect(clampUnit(2.5)).toBe(0.35);
+    expect(clampUnit(0.01)).toBe(0.05);
+    expect(clampUnit(0.12)).toBeCloseTo(0.12);
+  });
+});
 
-  it('shows building for short tekiah', () => {
-    const s = liveTimingState('tekiah', 0.3, { unitSec: unit }, 'sounding');
-    expect(s.status).toBe('building');
+describe('inferUnitFromBlasts', () => {
+  it('derives unit from teruah total when not segmented', () => {
+    const blasts: ClassifiedBlast[] = [
+      {
+        type: 'teruah',
+        segments: [{ startSample: 0, endSample: 1, durationSec: 6.3 }],
+        totalDurationSec: 6.3,
+      },
+    ];
+    expect(inferUnitFromBlasts(blasts)).toBe(0.35);
   });
 
-  it('shows good in range for teruah', () => {
-    const { idealSec } = expectedTiming('teruah', unit, { unitSec: unit });
-    const s = liveTimingState('teruah', idealSec, { unitSec: unit }, 'sounding');
-    expect(s.status).toBe('good');
+  it('uses median teruah blast when segmented', () => {
+    const blasts: ClassifiedBlast[] = [
+      {
+        type: 'teruah',
+        segments: Array.from({ length: 9 }, (_, i) => ({
+          startSample: i * 100,
+          endSample: i * 100 + 50,
+          durationSec: 0.11,
+        })),
+        totalDurationSec: 6,
+      },
+    ];
+    expect(inferUnitFromBlasts(blasts)).toBeCloseTo(0.11, 2);
+  });
+});
+
+describe('expectedDurationForType', () => {
+  it('uses ~7s for opening tekiah', () => {
+    const t = expectedDurationForType('tekiah');
+    expect(t.idealSec).toBe(7);
   });
 
   it('uses middle duration for closing tekiah', () => {
-    const s = liveTimingState(
-      'tekiah',
-      0.9,
-      { unitSec: unit, middleDurationSec: 0.9, isClosingTekiah: true },
-      'sounding',
-    );
+    const t = expectedDurationForType('tekiah', 6.5, true);
+    expect(t.idealSec).toBeCloseTo(6.5);
+  });
+
+  it('uses ~20s ideal for gedolah', () => {
+    expect(expectedDurationForType('tekiah_gedolah').idealSec).toBe(20);
+  });
+});
+
+describe('liveTimingState', () => {
+  it('targets ~7s for tekiah', () => {
+    const s = liveTimingState('tekiah', 6.5, { unitSec: 0.12 }, 'sounding');
     expect(s.status).toBe('good');
+    expect(s.targetIdealSec).toBe(7);
   });
 });

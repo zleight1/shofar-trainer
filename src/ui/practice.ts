@@ -5,7 +5,7 @@ import type { GuidedBlastStep } from '../halacha/guided-steps';
 import { liveTimingState, type LiveTimingState } from '../halacha/live-timing';
 import { scoreRecording } from '../halacha/rules';
 import type { BlastType, ClassifiedBlast } from '../halacha/types';
-import { analyzeSingleBlast, inferUnitFromBlasts } from '../audio/analyze-blast';
+import { analyzeSingleBlast, buildGuidedSetAnalysis, inferUnitFromBlasts } from '../audio/analyze-blast';
 import { waitForBlastEnd } from '../audio/auto-stop';
 import { SessionRecorder } from '../audio/session-recorder';
 import { getUnitDuration, saveSession, setUnitDuration } from '../store/sessions';
@@ -128,6 +128,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
     if (lastAnalysis && phase === 'set_review') {
       renderAnalysisFeedback(feedback, lastAnalysis);
+      renderBlastSummary(feedback, setBlasts);
       if (lastSamples) renderWaveform(canvas, lastSamples, lastAnalysis);
     }
 
@@ -262,7 +263,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
     const classified = [...setBlasts];
     const scored = scoreRecording(classified, unitSec);
-    lastAnalysis = { ...scored, rawSegments: [], noteSegments: [] };
+    lastAnalysis = buildGuidedSetAnalysis(classified, scored);
     lastSamples = concatClassifiedPreview(classified);
 
     saveSession({
@@ -312,13 +313,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const autoStopOpts = autoStopOptionsForType(step.type);
 
     let latestTickPhase: 'waiting_for_sound' | 'sounding' | 'trailing_silence' = 'waiting_for_sound';
-    let latestElapsed = 0;
 
     const { promise, cancel } = waitForBlastEnd(() => session.getAnalyser(), {
       ...autoStopOpts,
       onTick: (tick) => {
         latestTickPhase = tick.phase;
-        latestElapsed = tick.elapsedSec;
         currentTiming = liveTimingState(
           step.type,
           tick.elapsedSec,
@@ -344,12 +343,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
     await Promise.race([promise, abortWatcher]);
     const recording = session.endCapture();
+    const blastDuration = recording.durationSec;
     running = false;
     currentTiming = liveTimingState(
       step.type,
-      latestElapsed,
+      blastDuration,
       { unitSec, middleDurationSec: middleSoFar, isClosingTekiah },
-      latestTickPhase,
+      blastDuration > 0.1 ? 'sounding' : latestTickPhase,
     );
     render();
     await delay(450);
@@ -398,6 +398,21 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     detachLive();
     session.close();
     options.onBack();
+  }
+
+  function renderBlastSummary(container: HTMLElement, blasts: ClassifiedBlast[]): void {
+    const ul = el('ul', 'blast-summary');
+    const labels: Record<string, string> = {
+      tekiah: 'Tekiah',
+      shevarim: 'Shevarim',
+      teruah: 'Teruah',
+      tekiah_gedolah: 'Tekiah Gedolah',
+    };
+    for (const b of blasts) {
+      const li = el('li', '', `${labels[b.type] ?? b.type}: ${b.totalDurationSec.toFixed(1)}s`);
+      ul.appendChild(li);
+    }
+    container.appendChild(ul);
   }
 
   render();

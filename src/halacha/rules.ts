@@ -62,16 +62,21 @@ export function checkShevarim(
 ): ScoreIssue[] {
   const issues: ScoreIssue[] = [];
   const count = blast.segments.length;
+  const minTotal = config.minShevarimNoteUnits * config.shevarimNoteCount * unitSec * 0.75;
+
   if (count !== config.shevarimNoteCount) {
+    const totalOk = blast.totalDurationSec >= minTotal;
     issues.push({
-      severity: 'error',
+      severity: totalOk ? 'warn' : 'error',
       code: 'shevarim_count',
-      message: `Expected ${config.shevarimNoteCount} shevarim notes, detected ${count}`,
+      message: totalOk
+        ? `Could not detect ${config.shevarimNoteCount} separate notes (${count} detected) — total length ${blast.totalDurationSec.toFixed(1)}s looks OK`
+        : `Expected ${config.shevarimNoteCount} shevarim notes, detected ${count}`,
     });
   }
   const minDur = config.minShevarimNoteUnits * unitSec;
   for (let i = 0; i < blast.segments.length; i++) {
-    if (blast.segments[i].durationSec < minDur) {
+    if (blast.segments[i].durationSec < minDur && blast.segments[i].durationSec < blast.totalDurationSec * 0.4) {
       issues.push({
         severity: 'warn',
         code: 'shevarim_note_short',
@@ -89,10 +94,14 @@ export function checkTeruah(
   const issues: ScoreIssue[] = [];
   const count = blast.segments.length;
   if (count < config.minTeruahBlasts) {
+    const totalLikelyOk = blast.totalDurationSec >= 4.5;
     issues.push({
-      severity: 'error',
+      severity: totalLikelyOk && count >= 1 ? 'warn' : 'error',
       code: 'teruah_count',
-      message: `Expected at least ${config.minTeruahBlasts} teruah blasts, detected ${count}`,
+      message:
+        totalLikelyOk && count >= 1
+          ? `Detected ${count} teruah blasts (expected ~${config.minTeruahBlasts}) — total ${blast.totalDurationSec.toFixed(1)}s may be OK`
+          : `Expected at least ${config.minTeruahBlasts} teruah blasts, detected ${count}`,
     });
   }
   return issues;
