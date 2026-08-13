@@ -3,6 +3,8 @@ import { buildClassifiedFromNotes, scoreRecording } from '../halacha/rules';
 import type { SetGroup } from '../halacha/seder';
 import { prepareAnalysisEnvelope } from './envelope';
 import { segmentRecording } from './onsets';
+import { analyzeAttacks } from './spectral-flux';
+import { getRoomProfile, rememberEchoFromDiagnosis } from '../store/diagnostics';
 
 export interface DetailedAnalysisResult extends AnalysisResult {
   rawSegments: BlastSegment[];
@@ -18,7 +20,7 @@ export function analyzeRecording(
   const envelope = prepareAnalysisEnvelope(samples, sampleRate);
   const { rawSegments, noteSegments } = segmentRecording(envelope, sampleRate, unitSec);
   const classified = buildClassifiedFromNotes(pattern, noteSegments, unitSec);
-  const scored = scoreRecording(classified, unitSec);
+  const scored = scoreRecording(classified, unitSec, pattern);
 
   return {
     ...scored,
@@ -31,10 +33,18 @@ export function analyzeCalibration(
   samples: Float32Array,
   sampleRate: number,
 ): number {
+  const picked = analyzeAttacks(samples, sampleRate, {
+    minDistanceSec: 0.065,
+    minBlastSec: 0.028,
+    isochronous: true,
+    echoLagSec: getRoomProfile()?.echoLagSec ?? null,
+  });
+  rememberEchoFromDiagnosis(picked.diagnosis);
+  const attacks = picked.segments;
   const envelope = prepareAnalysisEnvelope(samples, sampleRate);
   const { noteSegments, rawSegments } = segmentRecording(envelope, sampleRate, 0.1);
-
-  const segments = noteSegments.length > 0 ? noteSegments : rawSegments;
+  const segments =
+    attacks.length >= 5 ? attacks : noteSegments.length > 0 ? noteSegments : rawSegments;
   if (segments.length === 0) {
     return 0.12;
   }

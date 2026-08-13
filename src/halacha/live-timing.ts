@@ -1,15 +1,10 @@
-import type { BlastType } from '../halacha/types';
-import {
-  clampUnit,
-  expectedDurationForType,
-  UNIT_DEFAULT_SEC,
-} from './duration-targets';
+import type { BlastType, SetPattern } from '../halacha/types';
+import { clampUnit, expectedDurationForType, UNIT_DEFAULT_SEC } from './duration-targets';
 
 export type LiveLengthStatus = 'waiting' | 'building' | 'too_short' | 'good' | 'too_long';
 
 export interface LiveTimingState {
   status: LiveLengthStatus;
-  message: string;
   elapsedSec: number;
   targetMinSec: number;
   targetIdealSec: number;
@@ -19,16 +14,22 @@ export interface LiveTimingState {
 
 export interface TimingContext {
   unitSec: number;
+  pattern: SetPattern;
   middleDurationSec?: number;
   isClosingTekiah?: boolean;
 }
 
 export function expectedTiming(
   type: BlastType,
-  _unitSec: number,
-  ctx: TimingContext = { unitSec: _unitSec },
+  ctx: TimingContext,
 ): { minSec: number; idealSec: number; maxSec: number } {
-  return expectedDurationForType(type, ctx.middleDurationSec, ctx.isClosingTekiah);
+  return expectedDurationForType(
+    type,
+    ctx.unitSec,
+    ctx.pattern,
+    ctx.middleDurationSec,
+    ctx.isClosingTekiah,
+  );
 }
 
 export function liveTimingState(
@@ -37,86 +38,45 @@ export function liveTimingState(
   ctx: TimingContext,
   phase: 'waiting_for_sound' | 'sounding' | 'trailing_silence',
 ): LiveTimingState {
-  const { minSec, idealSec, maxSec } = expectedTiming(type, ctx.unitSec, ctx);
+  const { minSec, idealSec, maxSec } = expectedTiming(type, ctx);
+  const progress = minSec > 0 ? Math.min(elapsedSec / minSec, 1.5) : 0;
 
   if (phase === 'waiting_for_sound' || elapsedSec < 0.05) {
-    return {
-      status: 'waiting',
-      message: 'Waiting for sound…',
-      elapsedSec,
-      targetMinSec: minSec,
-      targetIdealSec: idealSec,
-      targetMaxSec: maxSec,
-      progress: 0,
-    };
+    return pack('waiting', elapsedSec, minSec, idealSec, maxSec, 0);
   }
 
-  const progress = Math.min(elapsedSec / idealSec, 1.5);
-
   if (elapsedSec < minSec * 0.85) {
-    return {
-      status: 'building',
-      message: `Keep going — aim ~${idealSec.toFixed(0)}s`,
-      elapsedSec,
-      targetMinSec: minSec,
-      targetIdealSec: idealSec,
-      targetMaxSec: maxSec,
-      progress,
-    };
+    return pack('building', elapsedSec, minSec, idealSec, maxSec, progress);
   }
 
   if (elapsedSec < minSec) {
-    return {
-      status: 'too_short',
-      message: `Almost — a bit longer (${elapsedSec.toFixed(1)}s / ~${idealSec.toFixed(0)}s)`,
-      elapsedSec,
-      targetMinSec: minSec,
-      targetIdealSec: idealSec,
-      targetMaxSec: maxSec,
-      progress,
-    };
+    return pack('too_short', elapsedSec, minSec, idealSec, maxSec, progress);
   }
 
-  if (elapsedSec <= maxSec) {
-    return {
-      status: 'good',
-      message: `Good length (${elapsedSec.toFixed(1)}s)`,
-      elapsedSec,
-      targetMinSec: minSec,
-      targetIdealSec: idealSec,
-      targetMaxSec: maxSec,
-      progress,
-    };
+  const isShevarim = type === 'shevarim' || type === 'shevarim_teruah';
+  if (isShevarim && elapsedSec > maxSec) {
+    return pack('too_long', elapsedSec, minSec, idealSec, maxSec, progress);
   }
 
+  return pack('good', elapsedSec, minSec, idealSec, maxSec, progress);
+}
+
+function pack(
+  status: LiveLengthStatus,
+  elapsedSec: number,
+  minSec: number,
+  idealSec: number,
+  maxSec: number,
+  progress: number,
+): LiveTimingState {
   return {
-    status: 'too_long',
-    message: `A bit long — finish up (${elapsedSec.toFixed(1)}s)`,
+    status,
     elapsedSec,
     targetMinSec: minSec,
     targetIdealSec: idealSec,
     targetMaxSec: maxSec,
     progress,
   };
-}
-
-/** Score a single guided blast against duration targets (for step feedback) */
-export function scoreSingleBlastDuration(
-  type: BlastType,
-  durationSec: number,
-  ctx: TimingContext,
-): { ok: boolean; message: string } {
-  const { minSec, idealSec, maxSec } = expectedTiming(type, ctx.unitSec, ctx);
-  if (durationSec < minSec * 0.5) {
-    return { ok: false, message: `Very short (${durationSec.toFixed(1)}s) — aim ~${idealSec.toFixed(0)}s` };
-  }
-  if (durationSec < minSec) {
-    return { ok: false, message: `A bit short (${durationSec.toFixed(1)}s / ~${idealSec.toFixed(0)}s)` };
-  }
-  if (durationSec > maxSec * 1.2) {
-    return { ok: false, message: `Long (${durationSec.toFixed(1)}s) — aim ~${idealSec.toFixed(0)}s` };
-  }
-  return { ok: true, message: `${durationSec.toFixed(1)}s — in range` };
 }
 
 export { clampUnit, UNIT_DEFAULT_SEC };

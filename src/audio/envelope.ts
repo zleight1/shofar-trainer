@@ -36,6 +36,7 @@ export function computeEnvelope(
       const old = samples[i - windowSize];
       sumSq -= old * old;
     }
+    if (sumSq < 0) sumSq = 0;
     const n = Math.min(i + 1, windowSize);
     out[i] = Math.sqrt(sumSq / n);
   }

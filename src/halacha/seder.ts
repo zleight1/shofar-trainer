@@ -1,4 +1,4 @@
-import type { SederStep } from './types';
+import type { SederStep, SetPattern } from './types';
 
 /** Rosh Hashana practice seder — 30 blast sets plus gedolah */
 export const PRACTICE_SEDER: SederStep[] = [
@@ -92,7 +92,7 @@ export interface SetGroup {
   id: string;
   label: string;
   stepIds: string[];
-  pattern: 'tst' | 'tsh' | 'tt' | 'gedolah';
+  pattern: SetPattern;
 }
 
 export const SET_GROUPS: SetGroup[] = [

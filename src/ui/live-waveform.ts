@@ -154,9 +154,9 @@ export class LiveWaveform {
     ctx.fillStyle = peak > 0.02 ? this.levelColor : '#475569';
     ctx.fillRect(x, y, barW * Math.min(peak * 1.2, 1), 4);
 
-    if (timing && timing.targetIdealSec > 0) {
-      const minX = x + (timing.targetMinSec / timing.targetIdealSec) * barW * 0.85;
-      const maxX = x + (timing.targetMaxSec / timing.targetIdealSec) * barW * 0.85;
+    if (timing && timing.targetMinSec > 0) {
+      const minX = x + Math.min(timing.targetMinSec / Math.max(timing.targetMaxSec, timing.targetMinSec), 1) * barW;
+      const maxX = x + Math.min(timing.targetMaxSec / Math.max(timing.targetMaxSec, timing.targetMinSec), 1) * barW;
       ctx.strokeStyle = '#4ade8066';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -203,7 +203,11 @@ export class LiveWaveform {
     ctx.fillStyle = '#e2e8f0';
     ctx.font = '11px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(timing.message, width / 2, y + 14);
+    ctx.fillText(
+      `${timing.elapsedSec.toFixed(1)} / ${timing.targetMinSec.toFixed(1)}`,
+      width / 2,
+      y + 14,
+    );
   }
 
   private drawRecBadge(ctx: CanvasRenderingContext2D, peak: number): void {
@@ -221,7 +225,7 @@ export class LiveWaveform {
       ctx.fillStyle = '#64748b';
       ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Waiting for sound…', this.canvas.clientWidth / 2, this.canvas.clientHeight / 2);
+      ctx.fillText('…', this.canvas.clientWidth / 2, this.canvas.clientHeight / 2);
     }
   }
 }

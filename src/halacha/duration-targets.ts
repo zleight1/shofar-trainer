@@ -1,62 +1,56 @@
-import type { BlastType } from './types';
+import type { BlastType, SetPattern } from './types';
+import { tekiahMinimumSec, unitsFor } from './units';
 
-/** Real-world practice targets in seconds (typical baal tokea range) */
-export const BLAST_DURATION_TARGETS: Record<
-  'tekiah' | 'shevarim' | 'teruah' | 'tekiah_gedolah',
-  { min: number; ideal: number; max: number }
-> = {
-  tekiah: { min: 5, ideal: 7, max: 10 },
-  shevarim: { min: 5, ideal: 7, max: 10 },
-  teruah: { min: 5, ideal: 7, max: 10 },
-  tekiah_gedolah: { min: 12, ideal: 20, max: 35 },
-};
-
-/** One teruah blast length — usually 80–250 ms */
 export const UNIT_MIN_SEC = 0.05;
 export const UNIT_MAX_SEC = 0.35;
 export const UNIT_DEFAULT_SEC = 0.12;
+
+const SAFETY_CAPS: Record<BlastType, number> = {
+  tekiah: 15,
+  shevarim: 12,
+  teruah: 10,
+  shevarim_teruah: 12,
+  tekiah_gedolah: 25,
+};
 
 export function clampUnit(sec: number): number {
   if (!Number.isFinite(sec) || sec <= 0) return UNIT_DEFAULT_SEC;
   return Math.min(UNIT_MAX_SEC, Math.max(UNIT_MIN_SEC, sec));
 }
 
+export interface DurationBand {
+  minSec: number;
+  idealSec: number;
+  maxSec: number;
+  safetyAutoStopSec: number;
+}
+
 export function expectedDurationForType(
   type: BlastType,
+  unitSec: number,
+  pattern: SetPattern,
   middleDurationSec?: number,
   isClosingTekiah?: boolean,
-): { minSec: number; idealSec: number; maxSec: number } {
-  if (
-    (type === 'tekiah' || type === 'tekiah_gedolah') &&
-    isClosingTekiah &&
-    middleDurationSec &&
-    middleDurationSec > 1
-  ) {
-    const tol = 0.15;
+): DurationBand {
+  if (type === 'tekiah_gedolah') {
+    const gMin = unitsFor('gedolah', 'tekiah_gedolah') * unitSec;
     return {
-      minSec: middleDurationSec * (1 - tol),
-      idealSec: middleDurationSec,
-      maxSec: middleDurationSec * (1 + tol),
+      minSec: gMin,
+      idealSec: gMin * 2,
+      maxSec: gMin * 2,
+      safetyAutoStopSec: Math.max(SAFETY_CAPS.tekiah_gedolah, gMin * 3),
     };
   }
 
-  if (type === 'tekiah_gedolah') {
-    const g = BLAST_DURATION_TARGETS.tekiah_gedolah;
-    return { minSec: g.min, idealSec: g.ideal, maxSec: g.max };
-  }
-  if (type === 'tekiah') {
-    const t = BLAST_DURATION_TARGETS.tekiah;
-    return { minSec: t.min, idealSec: t.ideal, maxSec: t.max };
-  }
-  if (type === 'shevarim') {
-    const s = BLAST_DURATION_TARGETS.shevarim;
-    return { minSec: s.min, idealSec: s.ideal, maxSec: s.max };
-  }
-  if (type === 'teruah') {
-    const r = BLAST_DURATION_TARGETS.teruah;
-    return { minSec: r.min, idealSec: r.ideal, maxSec: r.max };
-  }
-
-  const fallback = BLAST_DURATION_TARGETS.tekiah;
-  return { minSec: fallback.min, idealSec: fallback.ideal, maxSec: fallback.max };
+  const minSec =
+    type === 'tekiah'
+      ? tekiahMinimumSec(pattern, unitSec, isClosingTekiah ? middleDurationSec ?? 0 : 0)
+      : unitsFor(pattern, type) * unitSec;
+  const maxSec = minSec * 2;
+  return {
+    minSec,
+    idealSec: minSec,
+    maxSec,
+    safetyAutoStopSec: Math.max(SAFETY_CAPS[type], minSec * 3),
+  };
 }
