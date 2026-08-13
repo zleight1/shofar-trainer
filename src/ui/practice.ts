@@ -1,4 +1,10 @@
-import { SET_GROUPS } from '../halacha/seder';
+import {
+  SET_GROUPS,
+  kolCountForSet,
+  kolosBeforeIndex,
+  indexInSectionPattern,
+  totalKolos,
+} from '../halacha/seder';
 import type { SetGroup } from '../halacha/seder';
 import { CALIBRATION_SET, guidedStepsForSet } from '../halacha/guided-steps';
 import type { GuidedBlastStep } from '../halacha/guided-steps';
@@ -83,18 +89,48 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
   function setLabel(set: SetGroup): string {
     const c = catalog(getLocale());
-    const n = Number(set.id.match(/(\d+)/)?.[1] ?? 1);
+    if (set.section === 'calibration') return c.setCalibration;
+    const { n, of } = indexInSectionPattern(set);
+    return c.setLine({
+      section: sectionName(set.section, c),
+      pattern: patternName(set, c),
+      n,
+      of,
+    });
+  }
+
+  function sectionName(
+    section: SetGroup['section'],
+    c: ReturnType<typeof catalog>,
+  ): string {
+    switch (section) {
+      case 'calibration':
+        return c.setCalibration;
+      case 'sitting':
+        return c.sectionSitting;
+      case 'malchuyot':
+        return c.sectionMalchuyot;
+      case 'zichronot':
+        return c.sectionZichronot;
+      case 'shofarot':
+        return c.sectionShofarot;
+      case 'afterMusaf':
+        return c.sectionAfterMusaf;
+      default: {
+        const _exhaustive: never = section;
+        return _exhaustive;
+      }
+    }
+  }
+
+  function patternName(set: SetGroup, c: ReturnType<typeof catalog>): string {
     switch (set.pattern) {
       case 'tst':
-        return set.id.startsWith('calibration')
-          ? c.setCalibration
-          : set.stBreath === 'between'
-            ? c.setTstStand({ n })
-            : c.setTst({ n });
+        return c.patternTst;
       case 'tsh':
-        return c.setTsh({ n });
+        return c.patternTsh;
       case 'tt':
-        return c.setTt({ n });
+        return set.closingGedolah ? c.patternTtGedolah : c.patternTt;
       case 'gedolah':
         return c.setGedolah;
       default: {
@@ -260,14 +296,26 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   function phaseSubtitle(): string {
     const c = catalog(getLocale());
     if (phase === 'calibration') return c.calibrationSubtitle;
+    const set = currentSet();
+    const kolos = kolosBeforeIndex(setIndex);
+    const total = totalKolos();
     if (phase === 'set_review') {
-      return c.setReviewSubtitle({ n: setIndex + 1, total: SET_GROUPS.length });
+      return c.setReviewSubtitle({
+        section: sectionName(set.section, c),
+        n: setIndex + 1,
+        total: SET_GROUPS.length,
+        kolos: kolos + kolCountForSet(set),
+        totalKolos: total,
+      });
     }
     return c.setProgressSubtitle({
+      section: sectionName(set.section, c),
       n: setIndex + 1,
       total: SET_GROUPS.length,
       blast: stepIndex + 1,
       blasts: currentSteps().length,
+      kolos,
+      totalKolos: total,
     });
   }
 

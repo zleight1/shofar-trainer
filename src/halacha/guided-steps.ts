@@ -16,6 +16,7 @@ export const CALIBRATION_SET: SetGroup = {
   label: 'Calibration — Tashrat (Tekiah · Shevarim-Teruah · Tekiah)',
   stepIds: ['cal-t1', 'cal-st', 'cal-t2'],
   pattern: 'tst',
+  section: 'calibration',
   stBreath: 'none',
 };
 
@@ -33,7 +34,9 @@ export function guidedStepsForSet(set: SetGroup): GuidedBlastStep[] {
       return [
         step('t1', 'tekiah'),
         step('tr', 'teruah'),
-        step('t2', 'tekiah'),
+        set.closingGedolah
+          ? step('t2', 'tekiah_gedolah', { callout: 'tekiah_gedolah' })
+          : step('t2', 'tekiah'),
       ];
     case 'gedolah':
       return [step('tg', 'tekiah_gedolah')];

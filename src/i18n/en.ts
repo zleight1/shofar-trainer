@@ -31,21 +31,34 @@ export const en = {
   startGuided: 'Start guided session',
   practiceTitle: 'Guided Practice',
   practiceIntro:
-    'Makrei-style practice: the app calls each blast, records automatically, and gives live length feedback. Starts with a calibration tashrat.',
+    'Full Rosh Hashana seder: 100 blasts. Sitting 30 with no breath in shevarim-teruah, then musaf and after musaf with a breath. Starts with a calibration tashrat.',
   calibrationIntro:
     'First, blow one sitting tashrat (Tekiah · Shevarim-Teruah in one breath · Tekiah). The app learns your timing from this.',
   calibrationSubtitle: 'Calibration — tashrat',
-  setReviewSubtitle: (p: { n: number; total: number }) =>
-    `Set ${p.n} of ${p.total} — review`,
-  setProgressSubtitle: (p: { n: number; total: number; blast: number; blasts: number }) =>
-    `Set ${p.n} of ${p.total} · blast ${p.blast} of ${p.blasts}`,
+  setReviewSubtitle: (p: {
+    section: string;
+    n: number;
+    total: number;
+    kolos: number;
+    totalKolos: number;
+  }) => `${p.section} · ${p.kolos} / ${p.totalKolos} kolos — review`,
+  setProgressSubtitle: (p: {
+    section: string;
+    n: number;
+    total: number;
+    blast: number;
+    blasts: number;
+    kolos: number;
+    totalKolos: number;
+  }) =>
+    `${p.section} · ${p.kolos} / ${p.totalKolos} kolos · blast ${p.blast} of ${p.blasts}`,
+  sessionComplete: '100 blasts complete. Well done.',
+  calibrateCompleteSpeech: 'Calibration complete. Starting the sitting 30.',
   blow: (p: { callout: string }) => `Blow: ${p.callout}`,
   listen: 'Listen…',
   setComplete: 'Set complete',
   teruahUnit: (p: { ms: number }) => `Teruah unit: ${p.ms} ms`,
-  sessionComplete: 'Session complete. Well done.',
   backHome: 'Back to home',
-  calibrateCompleteSpeech: 'Calibration complete. Starting practice sets.',
   calibrateTitle: 'Calibrate',
   calibrateIntro:
     'Blow one short teruah-style blast (or a few quick staccato notes). The app learns the length of one teruah unit for all timing checks.',
@@ -93,10 +106,17 @@ export const en = {
   minhagNote:
     'First 30 (sitting): shevarim-teruah in one breath. Later tashrat: breathe between (Rema). One callout either way.',
   openLink: 'Open source',
-  setTst: (p: { n: number }) => `Sitting tashrat ${p.n} — no breath`,
-  setTstStand: (p: { n: number }) => `Standing tashrat ${p.n} — breathe`,
-  setTsh: (p: { n: number }) => `Tekiah–Shevarim–Tekiah ${p.n}`,
-  setTt: (p: { n: number }) => `Tekiah–Teruah–Tekiah ${p.n}`,
+  setLine: (p: { section: string; pattern: string; n: number; of: number }) =>
+    p.of > 1 ? `${p.section} · ${p.pattern} ${p.n} of ${p.of}` : `${p.section} · ${p.pattern}`,
+  sectionSitting: 'Sitting 30',
+  sectionMalchuyot: 'Malchuyot',
+  sectionZichronot: 'Zichronot',
+  sectionShofarot: 'Shofarot',
+  sectionAfterMusaf: 'After musaf',
+  patternTst: 'Tashrat',
+  patternTsh: 'Tashat',
+  patternTt: 'Tarat',
+  patternTtGedolah: 'Tarat with Tekiah Gedolah',
   setGedolah: 'Tekiah Gedolah',
   setCalibration: 'Calibration — sitting tashrat (one breath)',
   calloutTekiah: 'Tekiah',

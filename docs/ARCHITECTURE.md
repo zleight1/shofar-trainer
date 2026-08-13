@@ -60,7 +60,7 @@ V1–V3 uses energy-threshold onset detection on a smoothed RMS envelope. It is 
 
 1. **`DEFAULT_HALACHA_CONFIG`** — Tune tolerances and minimums.
 2. **`detectOnsets` options** — Threshold, min blast/gap ms for different rooms.
-3. **`SET_GROUPS`** — Add full 100-blast run or custom sedarim.
+3. **`SET_GROUPS`** — Default is the 100-blast Ashkenazi seder. Add custom sedarim here.
 4. **Band-pass** — Add FFT or biquad filter before envelope in `analyze.ts`.
 
 ## Build toolchain

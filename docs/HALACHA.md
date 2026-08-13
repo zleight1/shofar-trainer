@@ -32,15 +32,19 @@ A shever that lasts ≥ 9 units **fails** as a possible tekiah. Extra shevarim n
 
 ## Practice seder
 
-The app follows the common Rosh Hashana practice loop:
+The app follows the common Ashkenazi Rosh Hashana seder of **100 blasts**. Calibration tashrat is first and is not in the 100.
 
-1. Tekiah–Shevarim-Teruah–Tekiah ×3 sitting, one breath (first 30)
-2. Tekiah–Shevarim–Tekiah ×3 (Tashat)
-3. Tekiah–Teruah–Tekiah ×3 (Tarat)
-4. Tekiah–Shevarim-Teruah–Tekiah ×3 standing, breathe between
-5. Tekiah Gedolah (coaching length only; not a scoring error)
+| Section | Sets | Tashrat breath | Closing blast |
+|---------|------|----------------|---------------|
+| Sitting (first 30) | Tashrat + Tashat + Tarat ×3 | One breath | Ordinary tekiah |
+| Musaf Malchuyot | One round of 10 | Breathe between | Ordinary tekiah |
+| Musaf Zichronot | One round of 10 | Breathe between | Ordinary tekiah |
+| Musaf Shofarot | One round of 10 | Breathe between | Last tekiah is gedolah |
+| After musaf | Tashrat + Tashat + Tarat ×4 | Breathe between | Last tekiah of the day is gedolah |
 
-The callout is always **Shevarim-Teruah**. A separate cue says whether to breathe.
+Kol count: Tashrat = 4 (also when shevarim-teruah is one take), Tashat = 3, Tarat = 3.
+
+The callout is always **Shevarim-Teruah**. A separate cue says whether to breathe. Tekiah gedolah uses a coaching length only. A short gedolah is not a scoring error.
 
 ## Live meter
 

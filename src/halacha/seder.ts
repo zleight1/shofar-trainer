@@ -1,6 +1,6 @@
 import type { SederStep, SetPattern } from './types';
 
-/** Rosh Hashana practice seder — 30 blast sets plus gedolah */
+/** Legacy step list. Guided practice uses SET_GROUPS (100 kolos). */
 export const PRACTICE_SEDER: SederStep[] = [
   // Tekiah–Shevarim–Teruah–Tekiah ×3
   ...Array.from({ length: 3 }, (_, i) => [
@@ -87,57 +87,106 @@ export function getSetStepsForGroup(groupLabel: string): SederStep[] {
   return PRACTICE_SEDER.filter((s) => s.groupLabel === groupLabel);
 }
 
-/** Steps that form a complete analyzable set (e.g. T-Sh-T as one recording) */
 export type ShevarimTeruahBreath = 'none' | 'between';
+
+export type SederSection =
+  | 'calibration'
+  | 'sitting'
+  | 'malchuyot'
+  | 'zichronot'
+  | 'shofarot'
+  | 'afterMusaf';
 
 export interface SetGroup {
   id: string;
   label: string;
   stepIds: string[];
   pattern: SetPattern;
+  section: SederSection;
   /** Sitting first-30: one breath. Later tashrat: breathe between. */
   stBreath?: ShevarimTeruahBreath;
+  /** Last tekiah of this set is tekiah gedolah. */
+  closingGedolah?: boolean;
 }
 
+function roundOfTen(
+  idPrefix: string,
+  section: SederSection,
+  stBreath: ShevarimTeruahBreath,
+  opts: { lastGedolah?: boolean } = {},
+): SetGroup[] {
+  return [
+    {
+      id: `${idPrefix}-tst`,
+      label: `${idPrefix} tashrat`,
+      stepIds: [`${idPrefix}-tst-t1`, `${idPrefix}-tst-st`, `${idPrefix}-tst-t2`],
+      pattern: 'tst',
+      section,
+      stBreath,
+    },
+    {
+      id: `${idPrefix}-tsh`,
+      label: `${idPrefix} tashat`,
+      stepIds: [`${idPrefix}-tsh-t1`, `${idPrefix}-tsh-sh`, `${idPrefix}-tsh-t2`],
+      pattern: 'tsh',
+      section,
+    },
+    {
+      id: `${idPrefix}-tt`,
+      label: `${idPrefix} tarat`,
+      stepIds: [`${idPrefix}-tt-t1`, `${idPrefix}-tt-tr`, `${idPrefix}-tt-t2`],
+      pattern: 'tt',
+      section,
+      closingGedolah: opts.lastGedolah,
+    },
+  ];
+}
+
+/** 100 kolos: sitting 30 + musaf 30 + after musaf 40. */
 export const SET_GROUPS: SetGroup[] = [
-  ...Array.from({ length: 3 }, (_, i) => ({
-    id: `tst-set-${i + 1}`,
-    label: `Sitting Tekiah–Shevarim–Teruah–Tekiah ${i + 1}`,
-    stepIds: [`tst-${i + 1}-t1`, `tst-${i + 1}-st`, `tst-${i + 1}-t2`],
-    pattern: 'tst' as const,
-    stBreath: 'none' as const,
-  })),
-  ...Array.from({ length: 3 }, (_, i) => ({
-    id: `tsh-set-${i + 1}`,
-    label: `Tekiah–Shevarim–Tekiah ${i + 1}`,
-    stepIds: [`tsh-${i + 1}-t1`, `tsh-${i + 1}-sh`, `tsh-${i + 1}-t2`],
-    pattern: 'tsh' as const,
-  })),
-  ...Array.from({ length: 3 }, (_, i) => ({
-    id: `tt-set-${i + 1}`,
-    label: `Tekiah–Teruah–Tekiah ${i + 1}`,
-    stepIds: [`tt-${i + 1}-t1`, `tt-${i + 1}-tr`, `tt-${i + 1}-t2`],
-    pattern: 'tt' as const,
-  })),
-  ...Array.from({ length: 3 }, (_, i) => ({
-    id: `tst-stand-set-${i + 1}`,
-    label: `Standing Tekiah–Shevarim–Teruah–Tekiah ${i + 1}`,
-    stepIds: [
-      `tst-stand-${i + 1}-t1`,
-      `tst-stand-${i + 1}-sh`,
-      `tst-stand-${i + 1}-tr`,
-      `tst-stand-${i + 1}-t2`,
-    ],
-    pattern: 'tst' as const,
-    stBreath: 'between' as const,
-  })),
-  {
-    id: 'gedolah-set',
-    label: 'Tekiah Gedolah',
-    stepIds: ['gedolah'],
-    pattern: 'gedolah',
-  },
+  ...roundOfTen('sit-1', 'sitting', 'none'),
+  ...roundOfTen('sit-2', 'sitting', 'none'),
+  ...roundOfTen('sit-3', 'sitting', 'none'),
+  ...roundOfTen('malchuyot', 'malchuyot', 'between'),
+  ...roundOfTen('zichronot', 'zichronot', 'between'),
+  ...roundOfTen('shofarot', 'shofarot', 'between', { lastGedolah: true }),
+  ...roundOfTen('after-1', 'afterMusaf', 'between'),
+  ...roundOfTen('after-2', 'afterMusaf', 'between'),
+  ...roundOfTen('after-3', 'afterMusaf', 'between'),
+  ...roundOfTen('after-4', 'afterMusaf', 'between', { lastGedolah: true }),
 ];
+
+export function kolCountForSet(set: SetGroup): number {
+  switch (set.pattern) {
+    case 'tst':
+      return 4;
+    case 'tsh':
+    case 'tt':
+      return 3;
+    case 'gedolah':
+      return 1;
+    default: {
+      const _exhaustive: never = set.pattern;
+      return _exhaustive;
+    }
+  }
+}
+
+export function totalKolos(groups: SetGroup[] = SET_GROUPS): number {
+  return groups.reduce((sum, set) => sum + kolCountForSet(set), 0);
+}
+
+export function kolosBeforeIndex(index: number, groups: SetGroup[] = SET_GROUPS): number {
+  return groups.slice(0, index).reduce((sum, set) => sum + kolCountForSet(set), 0);
+}
+
+export function indexInSectionPattern(
+  set: SetGroup,
+  groups: SetGroup[] = SET_GROUPS,
+): { n: number; of: number } {
+  const list = groups.filter((s) => s.section === set.section && s.pattern === set.pattern);
+  return { n: list.findIndex((s) => s.id === set.id) + 1, of: list.length };
+}
 
 export function calloutForStep(step: SederStep): string {
   return step.label;
