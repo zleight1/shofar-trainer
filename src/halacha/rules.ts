@@ -4,8 +4,10 @@ import type {
   ClassifiedBlast,
   HalachaConfig,
   ScoreIssue,
+  SetPattern,
 } from './types';
 import { DEFAULT_HALACHA_CONFIG } from './types';
+import { inferPattern, unitsFor } from './units';
 
 export function middleDuration(classified: ClassifiedBlast[]): number {
   const middle = classified.filter(
@@ -28,6 +30,46 @@ export function computeTekiahRatio(classified: ClassifiedBlast[]): number | null
   return avgTekiah / middle;
 }
 
+export function tekiahMinimumSec(
+  pattern: SetPattern,
+  unitSec: number,
+  middleSec: number,
+  config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
+): number {
+  const unitFloor = unitsFor(pattern, 'tekiah') * unitSec;
+  const middleMin = middleSec > 0 ? middleSec * (1 - config.ratioTolerance) : 0;
+  return Math.max(unitFloor, middleMin);
+}
+
+export function checkPerTekiah(
+  classified: ClassifiedBlast[],
+  unitSec: number,
+  pattern: SetPattern,
+  config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
+): ScoreIssue[] {
+  if (pattern === 'gedolah') return [];
+  const tekiahs = classified.filter((b) => b.type === 'tekiah');
+  const middle = middleDuration(classified);
+  const minSec = tekiahMinimumSec(pattern, unitSec, middle, config);
+  const issues: ScoreIssue[] = [];
+
+  tekiahs.forEach((blast, index) => {
+    if (blast.totalDurationSec >= minSec) return;
+    const code = index === 0 ? 'opening_tekiah_too_short' : 'closing_tekiah_too_short';
+    issues.push({
+      severity: 'error',
+      code,
+      params: {
+        duration: blast.totalDurationSec,
+        min: minSec,
+        units: unitsFor(pattern, 'tekiah'),
+      },
+    });
+  });
+  return issues;
+}
+
+/** Display helper. Pass/fail uses checkPerTekiah, not this average. */
 export function checkTekiahRatio(
   classified: ClassifiedBlast[],
   config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
@@ -37,19 +79,11 @@ export function checkTekiahRatio(
   if (ratio === null) return issues;
 
   const low = 1 - config.ratioTolerance;
-  const high = 1 + config.ratioTolerance;
-
   if (ratio < low) {
     issues.push({
-      severity: 'error',
-      code: 'tekiah_too_short',
-      message: `Tekiah is too short relative to middle (${(ratio * 100).toFixed(0)}% — aim for ~100%)`,
-    });
-  } else if (ratio > high) {
-    issues.push({
       severity: 'warn',
-      code: 'tekiah_too_long',
-      message: `Tekiah is longer than middle (${(ratio * 100).toFixed(0)}% — aim for ~100%)`,
+      code: 'tekiah_avg_short',
+      params: { pct: Math.round(ratio * 100) },
     });
   }
   return issues;
@@ -63,24 +97,41 @@ export function checkShevarim(
   const issues: ScoreIssue[] = [];
   const count = blast.segments.length;
   const minTotal = config.minShevarimNoteUnits * config.shevarimNoteCount * unitSec * 0.75;
+  const capSec = config.sheverCapUnits * unitSec;
 
-  if (count !== config.shevarimNoteCount) {
+  if (count > config.shevarimNoteCount) {
+    issues.push({
+      severity: 'warn',
+      code: 'shevarim_extra',
+      params: { detected: count, expected: config.shevarimNoteCount },
+    });
+  } else if (count !== config.shevarimNoteCount) {
     const totalOk = blast.totalDurationSec >= minTotal;
     issues.push({
       severity: totalOk ? 'warn' : 'error',
-      code: 'shevarim_count',
-      message: totalOk
-        ? `Could not detect ${config.shevarimNoteCount} separate notes (${count} detected) — total length ${blast.totalDurationSec.toFixed(1)}s looks OK`
-        : `Expected ${config.shevarimNoteCount} shevarim notes, detected ${count}`,
+      code: totalOk ? 'shevarim_count_ok_length' : 'shevarim_count',
+      params: {
+        expected: config.shevarimNoteCount,
+        detected: count,
+        sec: blast.totalDurationSec,
+      },
     });
   }
+
   const minDur = config.minShevarimNoteUnits * unitSec;
   for (let i = 0; i < blast.segments.length; i++) {
-    if (blast.segments[i].durationSec < minDur && blast.segments[i].durationSec < blast.totalDurationSec * 0.4) {
+    const note = blast.segments[i];
+    if (note.durationSec >= capSec) {
+      issues.push({
+        severity: 'error',
+        code: 'shever_too_long',
+        params: { duration: note.durationSec, cap: capSec, n: i + 1 },
+      });
+    } else if (note.durationSec < minDur && note.durationSec < blast.totalDurationSec * 0.4) {
       issues.push({
         severity: 'warn',
         code: 'shevarim_note_short',
-        message: `Shevarim note ${i + 1} may be too short (${blast.segments[i].durationSec.toFixed(2)}s)`,
+        params: { n: i + 1, sec: note.durationSec },
       });
     }
   }
@@ -94,14 +145,10 @@ export function checkTeruah(
   const issues: ScoreIssue[] = [];
   const count = blast.segments.length;
   if (count < config.minTeruahBlasts) {
-    const totalLikelyOk = blast.totalDurationSec >= 4.5;
     issues.push({
-      severity: totalLikelyOk && count >= 1 ? 'warn' : 'error',
+      severity: 'error',
       code: 'teruah_count',
-      message:
-        totalLikelyOk && count >= 1
-          ? `Detected ${count} teruah blasts (expected ~${config.minTeruahBlasts}) — total ${blast.totalDurationSec.toFixed(1)}s may be OK`
-          : `Expected at least ${config.minTeruahBlasts} teruah blasts, detected ${count}`,
+      params: { expected: config.minTeruahBlasts, detected: count },
     });
   }
   return issues;
@@ -110,15 +157,17 @@ export function checkTeruah(
 export function checkStandaloneTekiah(
   blast: ClassifiedBlast,
   unitSec: number,
+  pattern: SetPattern,
   config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
 ): ScoreIssue[] {
-  const minSec = config.minTekiahUnits * unitSec;
+  if (blast.type === 'tekiah_gedolah') return [];
+  const minSec = tekiahMinimumSec(pattern, unitSec, 0, config);
   if (blast.totalDurationSec < minSec) {
     return [
       {
-        severity: 'warn',
+        severity: 'error',
         code: 'tekiah_min_length',
-        message: `Tekiah may be below minimum length (${blast.totalDurationSec.toFixed(2)}s vs ~${minSec.toFixed(2)}s)`,
+        params: { duration: blast.totalDurationSec, min: minSec },
       },
     ];
   }
@@ -128,11 +177,12 @@ export function checkStandaloneTekiah(
 export function scoreRecording(
   classified: ClassifiedBlast[],
   unitSec: number,
+  pattern: SetPattern = inferPattern(classified.map((b) => b.type)),
   config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
 ): AnalysisResult {
   const issues: ScoreIssue[] = [];
 
-  issues.push(...checkTekiahRatio(classified, config));
+  issues.push(...checkPerTekiah(classified, unitSec, pattern, config));
 
   for (const blast of classified) {
     switch (blast.type) {
@@ -143,10 +193,11 @@ export function scoreRecording(
         issues.push(...checkTeruah(blast, config));
         break;
       case 'tekiah':
-      case 'tekiah_gedolah':
         if (classified.length === 1) {
-          issues.push(...checkStandaloneTekiah(blast, unitSec, config));
+          issues.push(...checkStandaloneTekiah(blast, unitSec, pattern, config));
         }
+        break;
+      case 'tekiah_gedolah':
         break;
       case 'shevarim_teruah':
         issues.push(...checkShevarim(blast, unitSec, config));
@@ -189,7 +240,7 @@ export function partitionShevarimTeruah(
 
 /** Build classified blasts from clustered notes using known set pattern (positional). */
 export function buildClassifiedFromNotes(
-  pattern: 'tst' | 'tsh' | 'tt' | 'gedolah',
+  pattern: SetPattern,
   notes: BlastSegment[],
   unitSec: number,
 ): ClassifiedBlast[] {
@@ -268,7 +319,7 @@ function spanDuration(segments: BlastSegment[]): number {
 }
 
 export function buildClassifiedFromSetPattern(
-  pattern: 'tst' | 'tsh' | 'tt' | 'gedolah',
+  pattern: SetPattern,
   segments: BlastSegment[],
   unitSec: number,
 ): ClassifiedBlast[] {

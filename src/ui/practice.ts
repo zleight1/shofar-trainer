@@ -2,6 +2,7 @@ import { SET_GROUPS } from '../halacha/seder';
 import type { SetGroup } from '../halacha/seder';
 import { CALIBRATION_SET, guidedStepsForSet } from '../halacha/guided-steps';
 import type { GuidedBlastStep } from '../halacha/guided-steps';
+import { expectedDurationForType } from '../halacha/duration-targets';
 import { liveTimingState, type LiveTimingState } from '../halacha/live-timing';
 import { scoreRecording } from '../halacha/rules';
 import type { BlastType, ClassifiedBlast } from '../halacha/types';
@@ -9,6 +10,9 @@ import { analyzeSingleBlast, buildGuidedSetAnalysis, inferUnitFromBlasts } from 
 import { waitForBlastEnd } from '../audio/auto-stop';
 import { SessionRecorder } from '../audio/session-recorder';
 import { getUnitDuration, saveSession, setUnitDuration } from '../store/sessions';
+import { blastLabel, calloutForType, catalog, formatLiveLine } from '../i18n/t';
+import { getLocale } from '../i18n/locale';
+import { loadVoices, shouldSpeakCallouts } from '../i18n/speech';
 import {
   button,
   el,
@@ -16,11 +20,14 @@ import {
   renderWaveform,
   speakAndWait,
 } from './components';
+import { renderAppHeader, renderDisclaimer } from './chrome';
 import { attachLiveWaveform } from './live-waveform';
 import type { DetailedAnalysisResult } from '../audio/analyze';
 
 export interface PracticeMountOptions {
   onBack: () => void;
+  onLocale: () => void;
+  onBusy?: (busy: boolean) => void;
 }
 
 type SessionPhase = 'idle' | 'calibration' | 'set' | 'set_review' | 'done';
@@ -39,9 +46,14 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let stopLive: (() => void) | null = null;
   let abortSession = false;
   let running = false;
+  let heVoiceNotice = false;
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
+
+  function localeBusy(): boolean {
+    return running || (phase !== 'idle' && phase !== 'set_review' && phase !== 'done');
+  }
 
   function detachLive(): void {
     stopLive?.();
@@ -62,13 +74,37 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     return guidedStepsForSet(currentSet());
   }
 
+  function setLabel(set: SetGroup): string {
+    const c = catalog(getLocale());
+    const n = Number(set.id.match(/(\d+)/)?.[1] ?? 1);
+    switch (set.pattern) {
+      case 'tst':
+        return set.id.startsWith('calibration') ? c.setCalibration : c.setTst({ n });
+      case 'tsh':
+        return c.setTsh({ n });
+      case 'tt':
+        return c.setTt({ n });
+      case 'gedolah':
+        return c.setGedolah;
+      default: {
+        const _exhaustive: never = set.pattern;
+        return _exhaustive;
+      }
+    }
+  }
+
   function render(): void {
     detachLive();
     container.innerHTML = '';
+    const locale = getLocale();
+    const c = catalog(locale);
 
-    const header = el('div', 'practice-header');
-    header.appendChild(el('h2', '', 'Guided Practice'));
-    container.appendChild(header);
+    renderAppHeader(container, {
+      title: c.practiceTitle,
+      locale,
+      onLocale: options.onLocale,
+      localeDisabled: localeBusy() && phase !== 'set_review' && phase !== 'done' && phase !== 'idle',
+    });
 
     if (phase === 'idle') {
       renderIdle();
@@ -84,37 +120,30 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const steps = currentSteps();
     const step = steps[stepIndex];
 
-    const subtitle = el('p', 'subtitle', phaseSubtitle());
-    container.appendChild(subtitle);
+    container.appendChild(el('p', 'subtitle', phaseSubtitle()));
 
     if (phase === 'calibration') {
-      container.appendChild(
-        el(
-          'p',
-          'calibration-intro',
-          'First, blow one tashrat (Tekiah · Shevarim · Teruah · Tekiah). The app learns your timing from this.',
-        ),
-      );
+      container.appendChild(el('p', 'calibration-intro', c.calibrationIntro));
     }
 
     const setCard = el('div', 'set-card');
-    setCard.appendChild(el('h3', '', set.label));
+    setCard.appendChild(el('h3', '', setLabel(set)));
     setCard.appendChild(el('div', 'step-dots', renderStepDots(steps, stepIndex)));
     container.appendChild(setCard);
 
     const callout = el('div', running ? 'callout recording' : 'callout preparing');
     callout.textContent = running
       ? step
-        ? `Blow: ${step.callout}`
+        ? c.blow({ callout: calloutForType(step.type, locale) })
         : '…'
       : phase === 'set_review'
-        ? 'Set complete'
-        : 'Listen…';
+        ? c.setComplete
+        : c.listen;
     container.appendChild(callout);
 
     const timingEl = el('div', 'live-timing');
     if (currentTiming) {
-      timingEl.textContent = currentTiming.message;
+      timingEl.textContent = formatLiveLine(currentTiming, locale);
       timingEl.className = `live-timing status-${currentTiming.status}`;
     }
     container.appendChild(timingEl);
@@ -127,31 +156,32 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     container.appendChild(feedback);
 
     if (lastAnalysis && phase === 'set_review') {
-      renderAnalysisFeedback(feedback, lastAnalysis);
+      renderAnalysisFeedback(feedback, lastAnalysis, locale);
       renderBlastSummary(feedback, setBlasts);
       if (lastSamples) renderWaveform(canvas, lastSamples, lastAnalysis);
     }
 
     if (unitSec > 0) {
-      container.appendChild(
-        el('p', 'unit-badge', `Teruah unit: ${(unitSec * 1000).toFixed(0)} ms`),
-      );
+      container.appendChild(el('p', 'unit-badge', c.teruahUnit({ ms: Math.round(unitSec * 1000) })));
     }
 
     const controls = el('div', 'controls');
     if (phase === 'set_review') {
-      const nextBtn = button(setIndex >= SET_GROUPS.length - 1 ? 'Finish' : 'Next set', 'btn primary');
+      const nextBtn = button(
+        setIndex >= SET_GROUPS.length - 1 ? c.finish : c.nextSet,
+        'btn primary',
+      );
       nextBtn.addEventListener('click', () => void advanceAfterSet());
       controls.appendChild(nextBtn);
     } else if (!running) {
-      const stopBtn = button('Stop session', 'btn secondary');
+      const stopBtn = button(c.stopSession, 'btn secondary');
       stopBtn.addEventListener('click', () => {
         abortSession = true;
         void teardownAndBack();
       });
       controls.appendChild(stopBtn);
     }
-    const exitBtn = button('Exit', 'btn secondary');
+    const exitBtn = button(c.exit, 'btn secondary');
     exitBtn.addEventListener('click', () => void teardownAndBack());
     controls.appendChild(exitBtn);
     container.appendChild(controls);
@@ -164,32 +194,43 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   }
 
   function renderIdle(): void {
-    container.appendChild(
-      el(
-        'p',
-        'instructions',
-        'Makrei-style practice: the app calls each blast, records automatically, and gives live length feedback. Starts with a calibration tashrat.',
-      ),
-    );
-    const startBtn = button('Start guided session', 'btn primary');
+    const locale = getLocale();
+    const c = catalog(locale);
+    renderDisclaimer(container, locale);
+    container.appendChild(el('p', 'instructions', c.practiceIntro));
+    if (heVoiceNotice) {
+      container.appendChild(el('p', 'speech-notice', c.speechHeMissing));
+    }
+    const startBtn = button(c.startGuided, 'btn primary');
     startBtn.addEventListener('click', () => void startSession());
     container.appendChild(startBtn);
-    const backBtn = button('Back', 'btn secondary');
+    const backBtn = button(c.back, 'btn secondary');
     backBtn.addEventListener('click', options.onBack);
     container.appendChild(backBtn);
   }
 
   function renderDone(): void {
-    container.appendChild(el('p', '', 'Session complete. Well done.'));
-    const backBtn = button('Back to home', 'btn primary');
+    const locale = getLocale();
+    const c = catalog(locale);
+    renderDisclaimer(container, locale);
+    container.appendChild(el('p', '', c.sessionComplete));
+    const backBtn = button(c.backHome, 'btn primary');
     backBtn.addEventListener('click', options.onBack);
     container.appendChild(backBtn);
   }
 
   function phaseSubtitle(): string {
-    if (phase === 'calibration') return 'Calibration — tashrat';
-    if (phase === 'set_review') return `Set ${setIndex + 1} of ${SET_GROUPS.length} — review`;
-    return `Set ${setIndex + 1} of ${SET_GROUPS.length} · blast ${stepIndex + 1} of ${currentSteps().length}`;
+    const c = catalog(getLocale());
+    if (phase === 'calibration') return c.calibrationSubtitle;
+    if (phase === 'set_review') {
+      return c.setReviewSubtitle({ n: setIndex + 1, total: SET_GROUPS.length });
+    }
+    return c.setProgressSubtitle({
+      n: setIndex + 1,
+      total: SET_GROUPS.length,
+      blast: stepIndex + 1,
+      blasts: currentSteps().length,
+    });
   }
 
   function renderStepDots(steps: GuidedBlastStep[], active: number): string {
@@ -215,6 +256,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     setBlasts = [];
     middleDurationSec = 0;
     phase = 'calibration';
+    options.onBusy?.(true);
+    const voices = await loadVoices();
+    heVoiceNotice = getLocale() === 'he' && !shouldSpeakCallouts('he', voices);
     await session.openMic();
     render();
     await runCalibration();
@@ -242,7 +286,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     middleDurationSec = 0;
     render();
     await delay(800);
-    await speakAndWait('Calibration complete. Starting practice sets.');
+    await speakAndWait(catalog(getLocale()).calibrateCompleteSpeech);
     await runCurrentSet();
   }
 
@@ -262,7 +306,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     }
 
     const classified = [...setBlasts];
-    const scored = scoreRecording(classified, unitSec);
+    const scored = scoreRecording(classified, unitSec, set.pattern);
     lastAnalysis = buildGuidedSetAnalysis(classified, scored);
     lastSamples = concatClassifiedPreview(classified);
 
@@ -274,9 +318,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       tekiahRatio: scored.tekiahRatio,
       issues: scored.issues,
       unitDurationSec: unitSec,
+      scoringRegime: 'per-tekiah-mb',
     });
 
     running = false;
+    options.onBusy?.(false);
     phase = 'set_review';
     render();
   }
@@ -304,30 +350,29 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     currentTiming = null;
     render();
 
-    await speakAndWait(step.callout);
+    await speakAndWait(calloutForType(step.type, getLocale()));
 
     running = true;
+    options.onBusy?.(true);
     render();
 
     session.beginCapture();
-    const autoStopOpts = autoStopOptionsForType(step.type);
+    const pattern = currentSet().pattern;
+    const autoStopOpts = autoStopOptionsForType(step.type, pattern, middleSoFar, isClosingTekiah);
 
     let latestTickPhase: 'waiting_for_sound' | 'sounding' | 'trailing_silence' = 'waiting_for_sound';
+    const timingCtx = {
+      unitSec,
+      pattern,
+      middleDurationSec: middleSoFar,
+      isClosingTekiah,
+    };
 
     const { promise, cancel } = waitForBlastEnd(() => session.getAnalyser(), {
       ...autoStopOpts,
       onTick: (tick) => {
         latestTickPhase = tick.phase;
-        currentTiming = liveTimingState(
-          step.type,
-          tick.elapsedSec,
-          {
-            unitSec,
-            middleDurationSec: middleSoFar,
-            isClosingTekiah,
-          },
-          tick.phase,
-        );
+        currentTiming = liveTimingState(step.type, tick.elapsedSec, timingCtx, tick.phase);
       },
     });
 
@@ -348,7 +393,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     currentTiming = liveTimingState(
       step.type,
       blastDuration,
-      { unitSec, middleDurationSec: middleSoFar, isClosingTekiah },
+      timingCtx,
       blastDuration > 0.1 ? 'sounding' : latestTickPhase,
     );
     render();
@@ -357,17 +402,16 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     return analyzeSingleBlast(recording, unitSec, step.type);
   }
 
-  function autoStopOptionsForType(type: BlastType) {
-    switch (type) {
-      case 'teruah':
-        return { silenceMs: 450, maxDurationSec: 10 };
-      case 'shevarim':
-        return { silenceMs: 650, maxDurationSec: 12 };
-      case 'tekiah_gedolah':
-        return { silenceMs: 900, maxDurationSec: 25 };
-      default:
-        return { silenceMs: 600, maxDurationSec: 15 };
-    }
+  function autoStopOptionsForType(
+    type: BlastType,
+    pattern: SetGroup['pattern'],
+    middleSoFar: number,
+    isClosingTekiah: boolean,
+  ) {
+    const band = expectedDurationForType(type, unitSec, pattern, middleSoFar, isClosingTekiah);
+    const silenceMs =
+      type === 'teruah' ? 450 : type === 'shevarim' ? 650 : type === 'tekiah_gedolah' ? 900 : 600;
+    return { silenceMs, maxDurationSec: band.safetyAutoStopSec };
   }
 
   function middleContribution(type: BlastType, durationSec: number): number {
@@ -388,6 +432,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     stepIndex = 0;
     phase = 'set';
     lastAnalysis = null;
+    options.onBusy?.(true);
     render();
     await delay(600);
     await runCurrentSet();
@@ -397,23 +442,32 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     abortSession = true;
     detachLive();
     session.close();
+    options.onBusy?.(false);
     options.onBack();
   }
 
-  function renderBlastSummary(container: HTMLElement, blasts: ClassifiedBlast[]): void {
+  function renderBlastSummary(target: HTMLElement, blasts: ClassifiedBlast[]): void {
+    const locale = getLocale();
+    const c = catalog(locale);
     const ul = el('ul', 'blast-summary');
-    const labels: Record<string, string> = {
-      tekiah: 'Tekiah',
-      shevarim: 'Shevarim',
-      teruah: 'Teruah',
-      tekiah_gedolah: 'Tekiah Gedolah',
-    };
     for (const b of blasts) {
-      const li = el('li', '', `${labels[b.type] ?? b.type}: ${b.totalDurationSec.toFixed(1)}s`);
+      const li = el(
+        'li',
+        '',
+        c.blastDuration({
+          label: blastLabel(b.type, locale),
+          sec: b.totalDurationSec.toFixed(1),
+        }),
+      );
       ul.appendChild(li);
     }
-    container.appendChild(ul);
+    target.appendChild(ul);
   }
+
+  void loadVoices().then((voices) => {
+    heVoiceNotice = getLocale() === 'he' && !shouldSpeakCallouts('he', voices);
+    if (phase === 'idle') render();
+  });
 
   render();
 
@@ -421,6 +475,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     abortSession = true;
     detachLive();
     session.close();
+    options.onBusy?.(false);
     container.remove();
   };
 }

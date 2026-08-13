@@ -1,5 +1,7 @@
 import type { PracticeSession } from '../halacha/types';
 import { SESSIONS_STORAGE_KEY } from '../halacha/types';
+import type { Locale } from '../i18n/locale';
+import { catalog, formatIssue } from '../i18n/t';
 
 export function loadSessions(): PracticeSession[] {
   try {
@@ -33,10 +35,18 @@ export function setUnitDuration(sec: number): void {
   localStorage.setItem('shofar-trainer-unit-sec', String(sec));
 }
 
-export function formatSessionSummary(session: PracticeSession): string {
-  const date = new Date(session.timestamp).toLocaleString();
-  const status = session.passed ? 'PASS' : 'FAIL';
+export function formatSessionSummary(
+  session: PracticeSession,
+  locale: Locale = 'en',
+): string {
+  const c = catalog(locale);
+  const date = new Date(session.timestamp).toLocaleString(locale === 'he' ? 'he-IL' : 'en-US');
+  const status = session.passed ? c.pass : c.fail;
   const ratio =
-    session.tekiahRatio !== null ? ` ratio ${(session.tekiahRatio * 100).toFixed(0)}%` : '';
-  return `${date} — ${session.stepId} — ${status}${ratio}`;
+    session.tekiahRatio !== null ? ` ${(session.tekiahRatio * 100).toFixed(0)}%` : '';
+  const prev =
+    session.scoringRegime === 'per-tekiah-mb' ? '' : ` — ${c.previousScoring}`;
+  const issue =
+    session.issues[0] != null ? ` — ${formatIssue(session.issues[0], locale)}` : '';
+  return `${date} — ${session.stepId} — ${status}${ratio}${prev}${issue}`;
 }

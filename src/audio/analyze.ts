@@ -18,7 +18,7 @@ export function analyzeRecording(
   const envelope = prepareAnalysisEnvelope(samples, sampleRate);
   const { rawSegments, noteSegments } = segmentRecording(envelope, sampleRate, unitSec);
   const classified = buildClassifiedFromNotes(pattern, noteSegments, unitSec);
-  const scored = scoreRecording(classified, unitSec);
+  const scored = scoreRecording(classified, unitSec, pattern);
 
   return {
     ...scored,

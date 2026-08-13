@@ -291,7 +291,7 @@ h1, h2, h3 {
 .feedback-detected,
 .feedback-issues {
   margin: 0.5rem 0;
-  padding-left: 1.25rem;
+  padding-inline-start: 1.25rem;
 }
 
 .feedback-issues .error {
@@ -317,11 +317,11 @@ h1, h2, h3 {
 }
 
 .session-list li.pass {
-  border-left: 3px solid var(--pass);
+  border-inline-start: 3px solid var(--pass);
 }
 
 .session-list li.fail {
-  border-left: 3px solid var(--fail);
+  border-inline-start: 3px solid var(--fail);
 }
 
 .issue-detail {
@@ -354,3 +354,73 @@ h1, h2, h3 {
 .empty {
   color: var(--muted);
 }
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.app-header h1,
+.app-header h2 {
+  margin: 0;
+  flex: 1;
+}
+
+.locale-toggle {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.locale-btn {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.locale-btn.active {
+  background: var(--accent);
+  color: #0f1628;
+  font-weight: 600;
+}
+
+.disclaimer,
+.minhag-note,
+.speech-notice {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.source-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.source-he,
+.source-en {
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+  background: var(--surface2);
+  border-radius: 8px;
+}
+
+.encoded-badge {
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.source-links a {
+  color: var(--accent);
+  margin-inline-end: 0.75rem;
+}
+
+.confirm-row {
+  background: var(--surface);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  margin: 1rem 0;
+}
+

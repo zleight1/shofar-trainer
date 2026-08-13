@@ -41,25 +41,36 @@ describe('inferUnitFromBlasts', () => {
 });
 
 describe('expectedDurationForType', () => {
-  it('uses ~7s for opening tekiah', () => {
-    const t = expectedDurationForType('tekiah');
-    expect(t.idealSec).toBe(7);
+  it('uses 18 units as Tashrat tekiah min, not 7s', () => {
+    const t = expectedDurationForType('tekiah', 0.12, 'tst');
+    expect(t.minSec).toBeCloseTo(2.16, 2);
+    expect(t.minSec).not.toBe(7);
   });
 
-  it('uses middle duration for closing tekiah', () => {
-    const t = expectedDurationForType('tekiah', 6.5, true);
-    expect(t.idealSec).toBeCloseTo(6.5);
+  it('uses 9 units as Tashat tekiah min', () => {
+    const t = expectedDurationForType('tekiah', 0.12, 'tsh');
+    expect(t.minSec).toBeCloseTo(1.08, 2);
   });
 
-  it('uses ~20s ideal for gedolah', () => {
-    expect(expectedDurationForType('tekiah_gedolah').idealSec).toBe(20);
+  it('uses max(unit floor, middle×0.85) for closing tekiah', () => {
+    const t = expectedDurationForType('tekiah', 0.12, 'tsh', 2.0, true);
+    expect(t.minSec).toBeCloseTo(1.7, 2);
+  });
+
+  it('uses 18 units for gedolah min, not 12/20/35 s', () => {
+    const t = expectedDurationForType('tekiah_gedolah', 0.12, 'gedolah');
+    expect(t.minSec).toBeCloseTo(2.16, 2);
+    expect(t.idealSec).toBeCloseTo(4.32, 2);
   });
 });
 
 describe('liveTimingState', () => {
-  it('targets ~7s for tekiah', () => {
-    const s = liveTimingState('tekiah', 6.5, { unitSec: 0.12 }, 'sounding');
-    expect(s.status).toBe('good');
-    expect(s.targetIdealSec).toBe(7);
+  it('marks Tashrat tekiah good at the 18-unit floor and stays good past it', () => {
+    const ctx = { unitSec: 0.12, pattern: 'tst' as const };
+    const atFloor = liveTimingState('tekiah', 2.16, ctx, 'sounding');
+    expect(atFloor.status).toBe('good');
+    expect(atFloor.targetMinSec).toBeCloseTo(2.16, 2);
+    const long = liveTimingState('tekiah', 12, ctx, 'sounding');
+    expect(long.status).toBe('good');
   });
 });

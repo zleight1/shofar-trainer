@@ -1,11 +1,16 @@
 import { analyzeCalibration } from '../audio/analyze';
 import { AudioRecorder } from '../audio/capture';
+import { catalog } from '../i18n/t';
+import { getLocale } from '../i18n/locale';
 import { getUnitDuration, setUnitDuration } from '../store/sessions';
+import { renderAppHeader } from './chrome';
 import { button, el, speakAndWait } from './components';
 import { attachLiveWaveform } from './live-waveform';
 
 export interface CalibrateMountOptions {
   onDone: () => void;
+  onLocale: () => void;
+  onBusy?: (busy: boolean) => void;
 }
 
 export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions): () => void {
@@ -18,6 +23,10 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
   const container = el('div', 'calibrate-view');
   root.appendChild(container);
 
+  function busy(): boolean {
+    return recording || preparing;
+  }
+
   function detachLive(): void {
     stopLive?.();
     stopLive = null;
@@ -26,40 +35,41 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
   function render(): void {
     detachLive();
     container.innerHTML = '';
-    container.appendChild(el('h2', '', 'Calibrate'));
-    container.appendChild(
-      el(
-        'p',
-        'instructions',
-        'Blow one short teruah-style blast (or a few quick staccato notes). The app learns the length of one teruah unit for all timing checks.',
-      ),
-    );
+    const locale = getLocale();
+    const c = catalog(locale);
+    renderAppHeader(container, {
+      title: c.calibrateTitle,
+      locale,
+      onLocale: options.onLocale,
+      localeDisabled: busy(),
+    });
+    container.appendChild(el('p', 'instructions', c.calibrateIntro));
 
     const canvas = el('canvas', recording ? 'waveform live' : 'waveform');
     canvas.height = 180;
     container.appendChild(canvas);
 
     if (recording) {
-      container.appendChild(el('p', 'live-hint', 'Watch the live waveform as you blow'));
+      container.appendChild(el('p', 'live-hint', c.liveHint));
     }
 
     const status = el('div', 'calibrate-status');
     if (recording) {
-      status.appendChild(el('p', 'recording-label', '● Recording — blow now'));
+      status.appendChild(el('p', 'recording-label', c.recordingNow));
     } else if (preparing) {
-      status.appendChild(el('p', 'preparing-label', 'Callout… get ready to blow'));
+      status.appendChild(el('p', 'preparing-label', c.calloutReady));
     } else if (detectedUnit) {
-      status.appendChild(el('p', 'unit-display', `Current unit: ${(detectedUnit * 1000).toFixed(0)} ms`));
+      status.appendChild(el('p', 'unit-display', c.currentUnit({ ms: Math.round(detectedUnit * 1000) })));
     }
     container.appendChild(status);
 
     const controls = el('div', 'controls');
     const recBtn = button(
-      preparing ? 'Starting…' : recording ? 'Stop' : 'Record teruah',
+      preparing ? c.starting : recording ? c.stop : c.recordTeruah,
       recording ? 'btn danger' : 'btn primary',
     );
-    const saveBtn = button('Save & continue', 'btn');
-    const backBtn = button('Skip for now', 'btn secondary');
+    const saveBtn = button(c.saveContinue, 'btn');
+    const backBtn = button(c.skipForNow, 'btn secondary');
 
     recBtn.addEventListener('click', () => void toggleRecord());
     saveBtn.addEventListener('click', () => {
@@ -91,8 +101,9 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
   async function toggleRecord(): Promise<void> {
     if (!recording) {
       preparing = true;
+      options.onBusy?.(true);
       render();
-      await speakAndWait('Teruah');
+      await speakAndWait(catalog(getLocale()).calloutTeruah);
       preparing = false;
       recorder = new AudioRecorder();
       await recorder.start();
@@ -103,6 +114,7 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
 
     detachLive();
     recording = false;
+    options.onBusy?.(false);
     const result = recorder!.stop();
     recorder = null;
     detectedUnit = analyzeCalibration(result.samples, result.sampleRate);
@@ -115,6 +127,7 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
     if (recording && recorder) {
       recorder.stop();
     }
+    options.onBusy?.(false);
     container.remove();
   };
 }

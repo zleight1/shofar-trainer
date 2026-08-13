@@ -1,5 +1,9 @@
 import type { AnalysisResult } from '../halacha/types';
 import type { DetailedAnalysisResult } from '../audio/analyze';
+import type { Locale } from '../i18n/locale';
+import { getLocale } from '../i18n/locale';
+import { blastLabel, catalog, formatIssue } from '../i18n/t';
+import { loadVoices, shouldSpeakCallouts, utteranceForCallout } from '../i18n/speech';
 
 const COLORS: Record<string, string> = {
   tekiah: '#4ade80',
@@ -10,7 +14,7 @@ const COLORS: Record<string, string> = {
   default: '#94a3b8',
 };
 
-const LABELS: Record<string, string> = {
+const CANVAS_LABELS: Record<string, string> = {
   tekiah: 'T',
   shevarim: 'Sh',
   teruah: 'Tr',
@@ -67,7 +71,7 @@ export function renderWaveform(
     ctx.lineWidth = 2;
     ctx.strokeRect(x0, 0, w, height);
 
-    const label = LABELS[blast.type] ?? blast.type;
+    const label = CANVAS_LABELS[blast.type] ?? blast.type;
     const count =
       blast.type === 'shevarim' || blast.type === 'teruah'
         ? ` (${blast.segments.length})`
@@ -81,20 +85,30 @@ export function renderWaveform(
   ctx.fillStyle = '#64748b';
   ctx.font = '10px system-ui, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`Notes detected: ${analysis.noteSegments.length}`, 6, height - 6);
+  ctx.fillText(String(analysis.noteSegments.length), 6, height - 6);
 }
 
-export function renderAnalysisFeedback(container: HTMLElement, result: AnalysisResult): void {
+export function renderAnalysisFeedback(
+  container: HTMLElement,
+  result: AnalysisResult,
+  locale: Locale = getLocale(),
+): void {
+  const c = catalog(locale);
   container.innerHTML = '';
   const status = document.createElement('div');
   status.className = `feedback-status ${result.passed ? 'pass' : 'fail'}`;
-  status.textContent = result.passed ? 'Passed' : 'Needs work';
+  status.textContent = result.passed ? c.passed : c.needsWork;
   container.appendChild(status);
+
+  const disclaimer = document.createElement('p');
+  disclaimer.className = 'disclaimer';
+  disclaimer.textContent = c.disclaimer;
+  container.appendChild(disclaimer);
 
   if (result.tekiahRatio !== null) {
     const ratio = document.createElement('p');
     ratio.className = 'feedback-ratio';
-    ratio.textContent = `Tekiah / middle ratio: ${(result.tekiahRatio * 100).toFixed(0)}% (target ~100%)`;
+    ratio.textContent = c.tekiahMiddleRatio({ pct: Math.round(result.tekiahRatio * 100) });
     container.appendChild(ratio);
   }
 
@@ -102,17 +116,23 @@ export function renderAnalysisFeedback(container: HTMLElement, result: AnalysisR
     const notes = (result as DetailedAnalysisResult).noteSegments;
     const noteLine = document.createElement('p');
     noteLine.className = 'feedback-notes';
-    noteLine.textContent = `Detected ${notes.length} note(s): ${notes.map((n, i) => `#${i + 1} ${(n.durationSec * 1000).toFixed(0)}ms`).join(', ')}`;
+    noteLine.textContent = c.notesDetected({
+      count: notes.length,
+      detail: notes.map((n, i) => `#${i + 1} ${(n.durationSec * 1000).toFixed(0)}ms`).join(', '),
+    });
     container.appendChild(noteLine);
   }
 
   if (result.classified.length > 0) {
     const detected = document.createElement('ul');
     detected.className = 'feedback-detected';
-    for (const c of result.classified) {
+    for (const blast of result.classified) {
       const li = document.createElement('li');
-      const label = LABELS[c.type] ?? c.type;
-      li.textContent = `${label}: ${c.segments.length} note(s), ${c.totalDurationSec.toFixed(2)}s total`;
+      li.textContent = c.blastLine({
+        label: blastLabel(blast.type, locale),
+        notes: blast.segments.length,
+        sec: blast.totalDurationSec.toFixed(2),
+      });
       detected.appendChild(li);
     }
     container.appendChild(detected);
@@ -124,7 +144,7 @@ export function renderAnalysisFeedback(container: HTMLElement, result: AnalysisR
     for (const issue of result.issues) {
       const li = document.createElement('li');
       li.className = issue.severity;
-      li.textContent = issue.message;
+      li.textContent = formatIssue(issue, locale);
       list.appendChild(li);
     }
     container.appendChild(list);
@@ -132,21 +152,22 @@ export function renderAnalysisFeedback(container: HTMLElement, result: AnalysisR
 }
 
 export function speak(text: string): void {
-  if (!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate = 0.9;
-  window.speechSynthesis.speak(u);
+  void speakAndWait(text, 0);
 }
 
-/** Speak callout, wait for finish, then brief silence before mic should open */
-export function speakAndWait(text: string, postDelayMs = 500): Promise<void> {
-  return new Promise((resolve) => {
-    if (!('speechSynthesis' in window)) {
-      setTimeout(resolve, postDelayMs);
-      return;
-    }
+export async function speakAndWait(text: string, postDelayMs = 500): Promise<void> {
+  const locale = getLocale();
+  const voices = await loadVoices();
+  if (!shouldSpeakCallouts(locale, voices)) {
+    await delay(postDelayMs);
+    return;
+  }
+  if (!('speechSynthesis' in window)) {
+    await delay(postDelayMs);
+    return;
+  }
 
+  await new Promise<void>((resolve) => {
     window.speechSynthesis.cancel();
     let settled = false;
     const done = () => {
@@ -155,13 +176,20 @@ export function speakAndWait(text: string, postDelayMs = 500): Promise<void> {
       setTimeout(resolve, postDelayMs);
     };
 
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.9;
+    const u = utteranceForCallout(text, locale, voices);
+    if (!u) {
+      done();
+      return;
+    }
     u.onend = done;
     u.onerror = done;
     window.speechSynthesis.speak(u);
     setTimeout(done, 6000);
   });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export function el<K extends keyof HTMLElementTagNameMap>(
