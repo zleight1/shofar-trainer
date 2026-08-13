@@ -7,10 +7,11 @@ import { liveTimingState, type LiveTimingState } from '../halacha/live-timing';
 import { scoreRecording } from '../halacha/rules';
 import type { BlastType, ClassifiedBlast } from '../halacha/types';
 import { analyzeSingleBlast, buildGuidedSetAnalysis, inferUnitFromBlasts } from '../audio/analyze-blast';
-import { waitForBlastEnd } from '../audio/auto-stop';
+import { waitForBlastEnd, type AutoStopResult } from '../audio/auto-stop';
 import { SessionRecorder } from '../audio/session-recorder';
 import { getUnitDuration, saveSession, setUnitDuration } from '../store/sessions';
 import { blastLabel, calloutForType, catalog, formatLiveLine } from '../i18n/t';
+import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { loadVoices, shouldSpeakCallouts } from '../i18n/speech';
 import {
@@ -26,11 +27,20 @@ import type { DetailedAnalysisResult } from '../audio/analyze';
 
 export interface PracticeMountOptions {
   onBack: () => void;
-  onLocale: () => void;
+  onLocale: (next: Locale) => void;
   onBusy?: (busy: boolean) => void;
+  onRefreshRegister?: (refresh: () => void) => void;
 }
 
 type SessionPhase = 'idle' | 'calibration' | 'set' | 'set_review' | 'done';
+
+const SILENCE_MS: Record<BlastType, number> = {
+  teruah: 450,
+  shevarim: 650,
+  shevarim_teruah: 650,
+  tekiah_gedolah: 900,
+  tekiah: 600,
+};
 
 export function mountPractice(root: HTMLElement, options: PracticeMountOptions): () => void {
   const session = new SessionRecorder();
@@ -47,6 +57,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let abortSession = false;
   let running = false;
   let heVoiceNotice = false;
+  let mounted = true;
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
@@ -132,13 +143,15 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     container.appendChild(setCard);
 
     const callout = el('div', running ? 'callout recording' : 'callout preparing');
-    callout.textContent = running
-      ? step
-        ? c.blow({ callout: calloutForType(step.type, locale) })
-        : '…'
-      : phase === 'set_review'
-        ? c.setComplete
-        : c.listen;
+    if (phase === 'set_review') {
+      callout.textContent = c.setComplete;
+    } else if (!running) {
+      callout.textContent = c.listen;
+    } else if (!step) {
+      callout.textContent = '…';
+    } else {
+      callout.textContent = c.blow({ callout: calloutForType(step.type, locale) });
+    }
     container.appendChild(callout);
 
     const timingEl = el('div', 'live-timing');
@@ -257,8 +270,6 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     middleDurationSec = 0;
     phase = 'calibration';
     options.onBusy?.(true);
-    const voices = await loadVoices();
-    heVoiceNotice = getLocale() === 'he' && !shouldSpeakCallouts('he', voices);
     await session.openMic();
     render();
     await runCalibration();
@@ -352,6 +363,12 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
     await speakAndWait(calloutForType(step.type, getLocale()));
 
+    if (abortSession || !mounted || !session.isOpen()) {
+      running = false;
+      options.onBusy?.(false);
+      return { type: step.type, segments: [], totalDurationSec: 0 };
+    }
+
     running = true;
     options.onBusy?.(true);
     render();
@@ -372,34 +389,47 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       ...autoStopOpts,
       onTick: (tick) => {
         latestTickPhase = tick.phase;
-        currentTiming = liveTimingState(step.type, tick.elapsedSec, timingCtx, tick.phase);
+        currentTiming = liveTimingState(step.type, tick.soundingSec, timingCtx, tick.phase);
       },
     });
 
+    let intervalId: ReturnType<typeof setInterval> | undefined;
     const abortWatcher = new Promise<void>((resolve) => {
-      const id = setInterval(() => {
+      intervalId = setInterval(() => {
         if (abortSession) {
           cancel();
-          clearInterval(id);
+          if (intervalId !== undefined) clearInterval(intervalId);
+          intervalId = undefined;
           resolve();
         }
       }, 100);
     });
 
-    await Promise.race([promise, abortWatcher]);
+    let stopResult: AutoStopResult | null = null;
+    try {
+      const raced = await Promise.race([
+        promise.then((r) => ({ kind: 'stop' as const, r })),
+        abortWatcher.then(() => ({ kind: 'abort' as const })),
+      ]);
+      if (raced.kind === 'stop') stopResult = raced.r;
+    } finally {
+      if (intervalId !== undefined) clearInterval(intervalId);
+    }
+
     const recording = session.endCapture();
-    const blastDuration = recording.durationSec;
+    const soundingSec = abortSession || !stopResult ? 0 : stopResult.soundingSec;
+    const scoredRecording = { ...recording, durationSec: soundingSec };
     running = false;
     currentTiming = liveTimingState(
       step.type,
-      blastDuration,
+      soundingSec,
       timingCtx,
-      blastDuration > 0.1 ? 'sounding' : latestTickPhase,
+      soundingSec > 0.1 ? 'sounding' : latestTickPhase,
     );
     render();
     await delay(450);
 
-    return analyzeSingleBlast(recording, unitSec, step.type);
+    return analyzeSingleBlast(scoredRecording, unitSec, step.type);
   }
 
   function autoStopOptionsForType(
@@ -409,9 +439,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     isClosingTekiah: boolean,
   ) {
     const band = expectedDurationForType(type, unitSec, pattern, middleSoFar, isClosingTekiah);
-    const silenceMs =
-      type === 'teruah' ? 450 : type === 'shevarim' ? 650 : type === 'tekiah_gedolah' ? 900 : 600;
-    return { silenceMs, maxDurationSec: band.safetyAutoStopSec };
+    return { silenceMs: SILENCE_MS[type], maxDurationSec: band.safetyAutoStopSec };
   }
 
   function middleContribution(type: BlastType, durationSec: number): number {
@@ -465,13 +493,16 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   }
 
   void loadVoices().then((voices) => {
+    if (!mounted) return;
     heVoiceNotice = getLocale() === 'he' && !shouldSpeakCallouts('he', voices);
     if (phase === 'idle') render();
   });
 
+  options.onRefreshRegister?.(render);
   render();
 
   return () => {
+    mounted = false;
     abortSession = true;
     detachLive();
     session.close();

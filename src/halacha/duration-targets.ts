@@ -1,10 +1,17 @@
 import type { BlastType, SetPattern } from './types';
-import { DEFAULT_HALACHA_CONFIG } from './types';
-import { unitsFor } from './units';
+import { tekiahMinimumSec, unitsFor } from './units';
 
 export const UNIT_MIN_SEC = 0.05;
 export const UNIT_MAX_SEC = 0.35;
 export const UNIT_DEFAULT_SEC = 0.12;
+
+const SAFETY_CAPS: Record<BlastType, number> = {
+  tekiah: 15,
+  shevarim: 12,
+  teruah: 10,
+  shevarim_teruah: 12,
+  tekiah_gedolah: 25,
+};
 
 export function clampUnit(sec: number): number {
   if (!Number.isFinite(sec) || sec <= 0) return UNIT_DEFAULT_SEC;
@@ -15,7 +22,6 @@ export interface DurationBand {
   minSec: number;
   idealSec: number;
   maxSec: number;
-  coachMaxSec: number;
   safetyAutoStopSec: number;
 }
 
@@ -26,39 +32,25 @@ export function expectedDurationForType(
   middleDurationSec?: number,
   isClosingTekiah?: boolean,
 ): DurationBand {
-  const unitFloor = unitsFor(pattern, type) * unitSec;
-  const middleMin =
-    isClosingTekiah && middleDurationSec && middleDurationSec > 0
-      ? middleDurationSec * (1 - DEFAULT_HALACHA_CONFIG.ratioTolerance)
-      : 0;
-  const minSec = Math.max(unitFloor, middleMin);
-  const coachMaxSec = minSec * 2;
-  const currentCaps: Record<string, number> = {
-    teruah: 10,
-    shevarim: 12,
-    shevarim_teruah: 12,
-    tekiah_gedolah: 25,
-    tekiah: 15,
-  };
-  const currentCap = currentCaps[type] ?? 15;
-  const safetyAutoStopSec = Math.max(currentCap, minSec * 3);
-
   if (type === 'tekiah_gedolah') {
     const gMin = unitsFor('gedolah', 'tekiah_gedolah') * unitSec;
     return {
       minSec: gMin,
       idealSec: gMin * 2,
       maxSec: gMin * 2,
-      coachMaxSec: gMin * 2,
-      safetyAutoStopSec: Math.max(25, gMin * 3),
+      safetyAutoStopSec: Math.max(SAFETY_CAPS.tekiah_gedolah, gMin * 3),
     };
   }
 
+  const minSec =
+    type === 'tekiah'
+      ? tekiahMinimumSec(pattern, unitSec, isClosingTekiah ? middleDurationSec ?? 0 : 0)
+      : unitsFor(pattern, type) * unitSec;
+  const maxSec = minSec * 2;
   return {
     minSec,
     idealSec: minSec,
-    maxSec: coachMaxSec,
-    coachMaxSec,
-    safetyAutoStopSec,
+    maxSec,
+    safetyAutoStopSec: Math.max(SAFETY_CAPS[type], minSec * 3),
   };
 }

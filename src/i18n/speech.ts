@@ -1,5 +1,8 @@
 import type { Locale } from './locale';
 
+let voicesCache: SpeechSynthesisVoice[] | null = null;
+let voicesInflight: Promise<SpeechSynthesisVoice[]> | null = null;
+
 export function findMatchingVoice(
   voices: SpeechSynthesisVoice[],
   locale: Locale,
@@ -30,15 +33,34 @@ export function utteranceForCallout(
   return u;
 }
 
+export function cachedVoices(): SpeechSynthesisVoice[] {
+  if (voicesCache) return voicesCache;
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return [];
+  return window.speechSynthesis.getVoices();
+}
+
 export function loadVoices(): Promise<SpeechSynthesisVoice[]> {
+  if (voicesCache && voicesCache.length > 0) return Promise.resolve(voicesCache);
+  if (voicesInflight) return voicesInflight;
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-    return Promise.resolve([]);
+    voicesCache = [];
+    return Promise.resolve(voicesCache);
   }
   const existing = window.speechSynthesis.getVoices();
-  if (existing.length > 0) return Promise.resolve(existing);
-  return new Promise((resolve) => {
-    const done = () => resolve(window.speechSynthesis.getVoices());
-    window.speechSynthesis.addEventListener('voiceschanged', done, { once: true });
-    setTimeout(done, 600);
+  if (existing.length > 0) {
+    voicesCache = existing;
+    return Promise.resolve(existing);
+  }
+  voicesInflight = new Promise((resolve) => {
+    const finish = () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', finish);
+      clearTimeout(timer);
+      voicesCache = window.speechSynthesis.getVoices();
+      voicesInflight = null;
+      resolve(voicesCache);
+    };
+    const timer = setTimeout(finish, 600);
+    window.speechSynthesis.addEventListener('voiceschanged', finish, { once: true });
   });
+  return voicesInflight;
 }

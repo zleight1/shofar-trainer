@@ -11,6 +11,7 @@ export interface AutoStopOptions {
 export interface AutoStopTick {
   phase: 'waiting_for_sound' | 'sounding' | 'trailing_silence';
   elapsedSec: number;
+  soundingSec: number;
   peak: number;
   silenceMs: number;
 }
@@ -20,6 +21,17 @@ export type AutoStopReason = 'silence' | 'max_duration' | 'cancelled';
 export interface AutoStopResult {
   reason: AutoStopReason;
   elapsedSec: number;
+  soundingSec: number;
+}
+
+export function soundingExclusiveSec(
+  now: number,
+  soundStartedAt: number | null,
+  silenceStartedAt: number | null,
+): number {
+  if (soundStartedAt === null) return 0;
+  const end = silenceStartedAt ?? now;
+  return Math.max(0, (end - soundStartedAt) / 1000);
 }
 
 const DEFAULTS = {
@@ -50,7 +62,12 @@ export function waitForBlastEnd(
 
     const tick = () => {
       if (cancelled) {
-        resolve({ reason: 'cancelled', elapsedSec: (performance.now() - startedAt) / 1000 });
+        const t = performance.now();
+        resolve({
+          reason: 'cancelled',
+          elapsedSec: (t - startedAt) / 1000,
+          soundingSec: soundingExclusiveSec(t, soundStartedAt, silenceStartedAt),
+        });
         return;
       }
 
@@ -76,15 +93,16 @@ export function waitForBlastEnd(
 
       const silenceMs = silenceStartedAt ? now - silenceStartedAt : 0;
       const soundMs = soundStartedAt ? now - soundStartedAt : 0;
+      const soundingSec = soundingExclusiveSec(now, soundStartedAt, silenceStartedAt);
 
       let phase: AutoStopTick['phase'] = 'waiting_for_sound';
       if (soundStartedAt !== null && !heard && silenceMs > 0) phase = 'trailing_silence';
       else if (soundStartedAt !== null) phase = 'sounding';
 
-      opts.onTick?.({ phase, elapsedSec, peak, silenceMs });
+      opts.onTick?.({ phase, elapsedSec, soundingSec, peak, silenceMs });
 
       if (elapsedSec >= opts.maxDurationSec) {
-        resolve({ reason: 'max_duration', elapsedSec });
+        resolve({ reason: 'max_duration', elapsedSec, soundingSec });
         return;
       }
 
@@ -93,7 +111,7 @@ export function waitForBlastEnd(
         soundMs >= opts.minSoundMs &&
         silenceMs >= opts.silenceMs
       ) {
-        resolve({ reason: 'silence', elapsedSec: soundMs / 1000 });
+        resolve({ reason: 'silence', elapsedSec, soundingSec });
         return;
       }
 

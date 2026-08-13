@@ -5,7 +5,6 @@ export type LiveLengthStatus = 'waiting' | 'building' | 'too_short' | 'good' | '
 
 export interface LiveTimingState {
   status: LiveLengthStatus;
-  code: LiveLengthStatus;
   elapsedSec: number;
   targetMinSec: number;
   targetIdealSec: number;
@@ -72,32 +71,12 @@ function pack(
 ): LiveTimingState {
   return {
     status,
-    code: status,
     elapsedSec,
     targetMinSec: minSec,
     targetIdealSec: idealSec,
     targetMaxSec: maxSec,
     progress,
   };
-}
-
-export function scoreSingleBlastDuration(
-  type: BlastType,
-  durationSec: number,
-  ctx: TimingContext,
-): { ok: boolean; code: string } {
-  const { minSec } = expectedTiming(type, ctx);
-  if (durationSec < minSec * 0.5) {
-    return { ok: false, code: 'too_short' };
-  }
-  if (durationSec < minSec) {
-    return { ok: false, code: 'too_short' };
-  }
-  const isShevarim = type === 'shevarim' || type === 'shevarim_teruah';
-  if (isShevarim && durationSec > minSec * 2 * 1.2) {
-    return { ok: false, code: 'too_long' };
-  }
-  return { ok: true, code: 'good' };
 }
 
 export { clampUnit, UNIT_DEFAULT_SEC };

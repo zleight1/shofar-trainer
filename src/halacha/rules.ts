@@ -7,7 +7,7 @@ import type {
   SetPattern,
 } from './types';
 import { DEFAULT_HALACHA_CONFIG } from './types';
-import { inferPattern, unitsFor } from './units';
+import { inferPattern, tekiahMinimumSec, unitsFor } from './units';
 
 export function middleDuration(classified: ClassifiedBlast[]): number {
   const middle = classified.filter(
@@ -28,17 +28,6 @@ export function computeTekiahRatio(classified: ClassifiedBlast[]): number | null
   if (tekiahs.length === 0 || middle <= 0) return null;
   const avgTekiah = tekiahs.reduce((a, b) => a + b, 0) / tekiahs.length;
   return avgTekiah / middle;
-}
-
-export function tekiahMinimumSec(
-  pattern: SetPattern,
-  unitSec: number,
-  middleSec: number,
-  config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
-): number {
-  const unitFloor = unitsFor(pattern, 'tekiah') * unitSec;
-  const middleMin = middleSec > 0 ? middleSec * (1 - config.ratioTolerance) : 0;
-  return Math.max(unitFloor, middleMin);
 }
 
 export function checkPerTekiah(
@@ -66,26 +55,6 @@ export function checkPerTekiah(
       },
     });
   });
-  return issues;
-}
-
-/** Display helper. Pass/fail uses checkPerTekiah, not this average. */
-export function checkTekiahRatio(
-  classified: ClassifiedBlast[],
-  config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
-): ScoreIssue[] {
-  const issues: ScoreIssue[] = [];
-  const ratio = computeTekiahRatio(classified);
-  if (ratio === null) return issues;
-
-  const low = 1 - config.ratioTolerance;
-  if (ratio < low) {
-    issues.push({
-      severity: 'warn',
-      code: 'tekiah_avg_short',
-      params: { pct: Math.round(ratio * 100) },
-    });
-  }
   return issues;
 }
 

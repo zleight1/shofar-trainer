@@ -1,23 +1,39 @@
-import type { BlastType } from './types';
-import type { SetPattern } from './types';
+import type { BlastType, HalachaConfig, SetPattern } from './types';
+import { DEFAULT_HALACHA_CONFIG } from './types';
 
 export type BlastRole = BlastType;
 
-export function unitsFor(pattern: SetPattern, blastRole: BlastRole): number {
+export function unitsFor(
+  pattern: SetPattern,
+  blastRole: BlastRole,
+  config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
+): number {
   switch (blastRole) {
     case 'tekiah':
     case 'tekiah_gedolah':
-      return pattern === 'tst' || pattern === 'gedolah' ? 18 : 9;
+      return pattern === 'tst' || pattern === 'gedolah'
+        ? config.tashratTekiahUnits
+        : config.minTekiahUnits;
     case 'shevarim':
     case 'shevarim_teruah':
-      return 9;
     case 'teruah':
-      return 9;
+      return config.minTeruahBlasts;
     default: {
       const _exhaustive: never = blastRole;
       return _exhaustive;
     }
   }
+}
+
+export function tekiahMinimumSec(
+  pattern: SetPattern,
+  unitSec: number,
+  middleSec: number,
+  config: HalachaConfig = DEFAULT_HALACHA_CONFIG,
+): number {
+  const unitFloor = unitsFor(pattern, 'tekiah', config) * unitSec;
+  const middleMin = middleSec > 0 ? middleSec * (1 - config.ratioTolerance) : 0;
+  return Math.max(unitFloor, middleMin);
 }
 
 export function inferPattern(types: readonly BlastType[]): SetPattern {

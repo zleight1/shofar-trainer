@@ -379,12 +379,6 @@ h1, h2, h3 {
   font-size: 0.85rem;
 }
 
-.locale-btn.active {
-  background: var(--accent);
-  color: #0f1628;
-  font-weight: 600;
-}
-
 .disclaimer,
 .minhag-note,
 .speech-notice {

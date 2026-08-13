@@ -1,6 +1,7 @@
 import { analyzeCalibration } from '../audio/analyze';
 import { AudioRecorder } from '../audio/capture';
 import { catalog } from '../i18n/t';
+import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { getUnitDuration, setUnitDuration } from '../store/sessions';
 import { renderAppHeader } from './chrome';
@@ -9,8 +10,9 @@ import { attachLiveWaveform } from './live-waveform';
 
 export interface CalibrateMountOptions {
   onDone: () => void;
-  onLocale: () => void;
+  onLocale: (next: Locale) => void;
   onBusy?: (busy: boolean) => void;
+  onRefreshRegister?: (refresh: () => void) => void;
 }
 
 export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions): () => void {
@@ -122,6 +124,7 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
   }
 
   render();
+  options.onRefreshRegister?.(render);
   return () => {
     detachLive();
     if (recording && recorder) {

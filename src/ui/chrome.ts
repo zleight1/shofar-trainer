@@ -11,8 +11,8 @@ export function renderLocaleToggle(
   const c = catalog(locale);
   const wrap = el('div', 'locale-toggle');
   wrap.setAttribute('role', 'group');
-  const enBtn = button(c.localeEn, locale === 'en' ? 'btn locale-btn active' : 'btn locale-btn');
-  const heBtn = button(c.localeHe, locale === 'he' ? 'btn locale-btn active' : 'btn locale-btn');
+  const enBtn = button(c.localeEn, locale === 'en' ? 'btn primary locale-btn' : 'btn locale-btn');
+  const heBtn = button(c.localeHe, locale === 'he' ? 'btn primary locale-btn' : 'btn locale-btn');
   enBtn.disabled = disabled || locale === 'en';
   heBtn.disabled = disabled || locale === 'he';
   enBtn.addEventListener('click', () => onLocale('en'));

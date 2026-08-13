@@ -2,7 +2,7 @@ import { en, type MessageCatalog } from './en';
 import { he } from './he';
 import type { Locale } from './locale';
 import { getLocale } from './locale';
-import type { ScoreIssue } from '../halacha/types';
+import type { BlastType, ScoreIssue } from '../halacha/types';
 import type { LiveTimingState } from '../halacha/live-timing';
 
 export function catalog(locale: Locale = getLocale()): MessageCatalog {
@@ -11,19 +11,18 @@ export function catalog(locale: Locale = getLocale()): MessageCatalog {
 
 export function formatIssue(issue: ScoreIssue, locale: Locale = getLocale()): string {
   const issues = catalog(locale).issues;
-  const fn = (issues as unknown as Record<string, ((p: Record<string, string | number>) => string) | undefined>)[
-    issue.code
-  ];
-  if (fn) {
+  const hasParams = issue.params != null && Object.keys(issue.params).length > 0;
+  if (issue.code in issues && (hasParams || issue.message == null)) {
+    const fn = issues[issue.code as keyof typeof issues];
     return fn({
       duration: num(issue.params?.duration),
       min: num(issue.params?.min),
       cap: num(issue.params?.cap),
-      expected: issue.params?.expected ?? '',
-      detected: issue.params?.detected ?? '',
+      expected: Number(issue.params?.expected ?? 0),
+      detected: Number(issue.params?.detected ?? 0),
       sec: num(issue.params?.sec ?? issue.params?.duration),
-      n: issue.params?.n ?? '',
-    });
+      n: Number(issue.params?.n ?? 0),
+    } as never);
   }
   return issue.message ?? issue.code;
 }
@@ -56,10 +55,7 @@ export function formatLiveLine(state: LiveTimingState, locale: Locale = getLocal
   }
 }
 
-export function calloutForType(
-  type: 'tekiah' | 'shevarim' | 'teruah' | 'tekiah_gedolah' | 'shevarim_teruah',
-  locale: Locale = getLocale(),
-): string {
+export function calloutForType(type: BlastType, locale: Locale = getLocale()): string {
   const c = catalog(locale);
   switch (type) {
     case 'tekiah':
@@ -78,24 +74,6 @@ export function calloutForType(
   }
 }
 
-export function blastLabel(
-  type: 'tekiah' | 'shevarim' | 'teruah' | 'tekiah_gedolah' | 'shevarim_teruah',
-  locale: Locale = getLocale(),
-): string {
-  const c = catalog(locale);
-  switch (type) {
-    case 'tekiah':
-      return c.blastTekiah;
-    case 'shevarim':
-    case 'shevarim_teruah':
-      return c.blastShevarim;
-    case 'teruah':
-      return c.blastTeruah;
-    case 'tekiah_gedolah':
-      return c.blastGedolah;
-    default: {
-      const _exhaustive: never = type;
-      return _exhaustive;
-    }
-  }
+export function blastLabel(type: BlastType, locale: Locale = getLocale()): string {
+  return calloutForType(type, locale);
 }

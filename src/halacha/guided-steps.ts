@@ -3,7 +3,6 @@ import type { BlastType } from './types';
 
 export interface GuidedBlastStep {
   id: string;
-  callout: string;
   type: BlastType;
 }
 
@@ -18,32 +17,28 @@ export function guidedStepsForSet(set: SetGroup): GuidedBlastStep[] {
   switch (set.pattern) {
     case 'tst':
       return [
-        { id: 't1', callout: 'Tekiah', type: 'tekiah' },
-        { id: 'sh', callout: 'Shevarim', type: 'shevarim' },
-        { id: 'tr', callout: 'Teruah', type: 'teruah' },
-        { id: 't2', callout: 'Tekiah', type: 'tekiah' },
+        { id: 't1', type: 'tekiah' },
+        { id: 'sh', type: 'shevarim' },
+        { id: 'tr', type: 'teruah' },
+        { id: 't2', type: 'tekiah' },
       ];
     case 'tsh':
       return [
-        { id: 't1', callout: 'Tekiah', type: 'tekiah' },
-        { id: 'sh', callout: 'Shevarim', type: 'shevarim' },
-        { id: 't2', callout: 'Tekiah', type: 'tekiah' },
+        { id: 't1', type: 'tekiah' },
+        { id: 'sh', type: 'shevarim' },
+        { id: 't2', type: 'tekiah' },
       ];
     case 'tt':
       return [
-        { id: 't1', callout: 'Tekiah', type: 'tekiah' },
-        { id: 'tr', callout: 'Teruah', type: 'teruah' },
-        { id: 't2', callout: 'Tekiah', type: 'tekiah' },
+        { id: 't1', type: 'tekiah' },
+        { id: 'tr', type: 'teruah' },
+        { id: 't2', type: 'tekiah' },
       ];
     case 'gedolah':
-      return [{ id: 'tg', callout: 'Tekiah Gedolah', type: 'tekiah_gedolah' }];
+      return [{ id: 'tg', type: 'tekiah_gedolah' }];
     default: {
       const _exhaustive: never = set.pattern;
       return _exhaustive;
     }
   }
-}
-
-export function calloutWithPattern(set: SetGroup): string {
-  return set.label;
 }

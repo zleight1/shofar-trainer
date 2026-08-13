@@ -1,12 +1,13 @@
 import { clearSessions, formatSessionSummary, loadSessions } from '../store/sessions';
 import { catalog } from '../i18n/t';
+import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { renderAppHeader, renderDisclaimer } from './chrome';
 import { button, el } from './components';
 
 export interface HistoryMountOptions {
   onBack: () => void;
-  onLocale: () => void;
+  onLocale: (next: Locale) => void;
 }
 
 export function mountHistory(root: HTMLElement, options: HistoryMountOptions): () => void {

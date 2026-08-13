@@ -3,7 +3,6 @@ import {
   buildClassifiedFromNotes,
   buildClassifiedFromSetPattern,
   checkShevarim,
-  checkTekiahRatio,
   checkTeruah,
   computeTekiahRatio,
   scoreRecording,
@@ -30,28 +29,6 @@ describe('computeTekiahRatio', () => {
       { type: 'tekiah', segments: [seg(1)], totalDurationSec: 1 },
     ];
     expect(computeTekiahRatio(classified)).toBeNull();
-  });
-});
-
-describe('checkTekiahRatio', () => {
-  it('passes when within tolerance', () => {
-    const classified: ClassifiedBlast[] = [
-      { type: 'tekiah', segments: [seg(0.95)], totalDurationSec: 0.95 },
-      { type: 'shevarim', segments: [seg(0.3), seg(0.3), seg(0.35)], totalDurationSec: 0.95 },
-      { type: 'tekiah', segments: [seg(0.95)], totalDurationSec: 0.95 },
-    ];
-    expect(checkTekiahRatio(classified)).toHaveLength(0);
-  });
-
-  it('warns on average short without failing the set by itself', () => {
-    const classified: ClassifiedBlast[] = [
-      { type: 'tekiah', segments: [seg(0.5)], totalDurationSec: 0.5 },
-      { type: 'shevarim', segments: [seg(0.3), seg(0.3), seg(0.3)], totalDurationSec: 0.9 },
-      { type: 'tekiah', segments: [seg(0.5)], totalDurationSec: 0.5 },
-    ];
-    const issues = checkTekiahRatio(classified);
-    expect(issues.some((i) => i.code === 'tekiah_avg_short')).toBe(true);
-    expect(issues.every((i) => i.severity === 'warn')).toBe(true);
   });
 });
 

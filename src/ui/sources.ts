@@ -1,12 +1,13 @@
 import { SOURCES } from '../halacha/sources';
 import { catalog } from '../i18n/t';
-import { getLocale } from '../i18n/locale';
+import type { Locale } from '../i18n/locale';
+import { getLocale, htmlAttrsForLocale } from '../i18n/locale';
 import { renderAppHeader, renderDisclaimer } from './chrome';
 import { button, el } from './components';
 
 export interface SourcesMountOptions {
   onBack: () => void;
-  onLocale: () => void;
+  onLocale: (next: Locale) => void;
 }
 
 export function mountSources(root: HTMLElement, options: SourcesMountOptions): () => void {
@@ -34,14 +35,12 @@ export function mountSources(root: HTMLElement, options: SourcesMountOptions): (
       );
 
       const heBlock = el('blockquote', 'source-he');
-      heBlock.lang = 'he';
-      heBlock.dir = 'rtl';
+      Object.assign(heBlock, htmlAttrsForLocale('he'));
       heBlock.textContent = entry.hebrew;
       card.appendChild(heBlock);
 
       const enBlock = el('blockquote', 'source-en');
-      enBlock.lang = 'en';
-      enBlock.dir = 'ltr';
+      Object.assign(enBlock, htmlAttrsForLocale('en'));
       enBlock.textContent = entry.english;
       card.appendChild(enBlock);
 

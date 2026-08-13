@@ -16,6 +16,7 @@ function mountApp(): void {
   let view: View = 'home';
   let unmount: (() => void) | null = null;
   let viewBusy = false;
+  let refreshLocale: (() => void) | null = null;
 
   function syncDocument(): void {
     const locale = getLocale();
@@ -26,40 +27,62 @@ function mountApp(): void {
     if (viewBusy) return;
     setLocale(next);
     syncDocument();
+    if (refreshLocale) {
+      refreshLocale();
+      return;
+    }
     render();
   }
 
   function navigate(next: View): void {
     unmount?.();
     unmount = null;
+    refreshLocale = null;
     viewBusy = false;
     view = next;
     render();
   }
 
+  function bindUnmount(fn: () => void): () => void {
+    return () => {
+      refreshLocale = null;
+      fn();
+    };
+  }
+
   function render(): void {
     app.innerHTML = '';
     unmount?.();
+    refreshLocale = null;
     syncDocument();
-    const onLocale = () => changeLocale(getLocale() === 'en' ? 'he' : 'en');
+    const onLocale = (next: Locale) => changeLocale(next);
     const onBusy = (busy: boolean) => {
       viewBusy = busy;
+    };
+    const onRefreshRegister = (fn: () => void) => {
+      refreshLocale = fn;
     };
 
     if (view === 'home') {
       renderHome(app as HTMLElement, navigate, onLocale);
     } else if (view === 'calibrate') {
-      unmount = mountCalibrate(app as HTMLElement, {
-        onDone: () => navigate('home'),
-        onLocale,
-        onBusy,
-      });
+      unmount = bindUnmount(
+        mountCalibrate(app as HTMLElement, {
+          onDone: () => navigate('home'),
+          onLocale,
+          onBusy,
+          onRefreshRegister,
+        }),
+      );
     } else if (view === 'practice') {
-      unmount = mountPractice(app as HTMLElement, {
-        onBack: () => navigate('home'),
-        onLocale,
-        onBusy,
-      });
+      unmount = bindUnmount(
+        mountPractice(app as HTMLElement, {
+          onBack: () => navigate('home'),
+          onLocale,
+          onBusy,
+          onRefreshRegister,
+        }),
+      );
     } else if (view === 'history') {
       unmount = mountHistory(app as HTMLElement, { onBack: () => navigate('home'), onLocale });
     } else if (view === 'sources') {
@@ -73,7 +96,7 @@ function mountApp(): void {
 function renderHome(
   root: HTMLElement,
   navigate: (v: View) => void,
-  onLocale: () => void,
+  onLocale: (next: Locale) => void,
 ): void {
   const locale = getLocale();
   const c = catalog(locale);
@@ -94,10 +117,6 @@ function renderHome(
   nav.appendChild(makeNavBtn(c.navHistory, () => navigate('history')));
   nav.appendChild(makeNavBtn(c.navSources, () => navigate('sources')));
   shell.appendChild(nav);
-
-  const footer = el('footer', 'footer');
-  footer.appendChild(el('p', '', c.disclaimer));
-  shell.appendChild(footer);
 
   root.appendChild(shell);
 }

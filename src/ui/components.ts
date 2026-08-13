@@ -3,7 +3,7 @@ import type { DetailedAnalysisResult } from '../audio/analyze';
 import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { blastLabel, catalog, formatIssue } from '../i18n/t';
-import { loadVoices, shouldSpeakCallouts, utteranceForCallout } from '../i18n/speech';
+import { cachedVoices, loadVoices, shouldSpeakCallouts, utteranceForCallout } from '../i18n/speech';
 
 const COLORS: Record<string, string> = {
   tekiah: '#4ade80',
@@ -157,7 +157,7 @@ export function speak(text: string): void {
 
 export async function speakAndWait(text: string, postDelayMs = 500): Promise<void> {
   const locale = getLocale();
-  const voices = await loadVoices();
+  const voices = locale === 'en' ? cachedVoices() : await loadVoices();
   if (!shouldSpeakCallouts(locale, voices)) {
     await delay(postDelayMs);
     return;
