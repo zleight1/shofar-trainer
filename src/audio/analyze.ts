@@ -3,6 +3,7 @@ import { buildClassifiedFromNotes, scoreRecording } from '../halacha/rules';
 import type { SetGroup } from '../halacha/seder';
 import { prepareAnalysisEnvelope } from './envelope';
 import { segmentRecording } from './onsets';
+import { segmentAttacks } from './spectral-flux';
 
 export interface DetailedAnalysisResult extends AnalysisResult {
   rawSegments: BlastSegment[];
@@ -31,10 +32,14 @@ export function analyzeCalibration(
   samples: Float32Array,
   sampleRate: number,
 ): number {
+  const attacks = segmentAttacks(samples, sampleRate, {
+    minDistanceSec: 0.032,
+    minBlastSec: 0.028,
+  });
   const envelope = prepareAnalysisEnvelope(samples, sampleRate);
   const { noteSegments, rawSegments } = segmentRecording(envelope, sampleRate, 0.1);
-
-  const segments = noteSegments.length > 0 ? noteSegments : rawSegments;
+  const segments =
+    attacks.length >= 5 ? attacks : noteSegments.length > 0 ? noteSegments : rawSegments;
   if (segments.length === 0) {
     return 0.12;
   }
