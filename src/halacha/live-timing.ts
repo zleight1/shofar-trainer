@@ -53,7 +53,7 @@ export function liveTimingState(
     return pack('too_short', elapsedSec, minSec, idealSec, maxSec, progress);
   }
 
-  const isShevarim = type === 'shevarim' || type === 'shevarim_teruah';
+  const isShevarim = type === 'shevarim';
   if (isShevarim && elapsedSec > maxSec) {
     return pack('too_long', elapsedSec, minSec, idealSec, maxSec, progress);
   }

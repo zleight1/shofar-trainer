@@ -61,8 +61,9 @@ export function calloutForType(type: BlastType, locale: Locale = getLocale()): s
     case 'tekiah':
       return c.calloutTekiah;
     case 'shevarim':
-    case 'shevarim_teruah':
       return c.calloutShevarim;
+    case 'shevarim_teruah':
+      return c.calloutShevarimTeruah;
     case 'teruah':
       return c.calloutTeruah;
     case 'tekiah_gedolah':

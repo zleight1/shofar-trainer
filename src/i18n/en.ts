@@ -33,7 +33,7 @@ export const en = {
   practiceIntro:
     'Makrei-style practice: the app calls each blast, records automatically, and gives live length feedback. Starts with a calibration tashrat.',
   calibrationIntro:
-    'First, blow one tashrat (Tekiah · Shevarim · Teruah · Tekiah). The app learns your timing from this.',
+    'First, blow one sitting tashrat (Tekiah · Shevarim-Teruah in one breath · Tekiah). The app learns your timing from this.',
   calibrationSubtitle: 'Calibration — tashrat',
   setReviewSubtitle: (p: { n: number; total: number }) =>
     `Set ${p.n} of ${p.total} — review`,
@@ -91,17 +91,21 @@ export const en = {
   encodedLabel: 'Encoded in scoring',
   studyOnlyLabel: 'Study only — not encoded',
   minhagNote:
-    'Default practice is Rema two-breath tashrat (shevarim, then teruah). One-breath sitting blasts stay deferred.',
+    'First 30 (sitting): shevarim-teruah in one breath. Later tashrat: breathe between (Rema). One callout either way.',
   openLink: 'Open source',
-  setTst: (p: { n: number }) => `Tekiah–Shevarim–Teruah–Tekiah ${p.n}`,
+  setTst: (p: { n: number }) => `Sitting tashrat ${p.n} — no breath`,
+  setTstStand: (p: { n: number }) => `Standing tashrat ${p.n} — breathe`,
   setTsh: (p: { n: number }) => `Tekiah–Shevarim–Tekiah ${p.n}`,
   setTt: (p: { n: number }) => `Tekiah–Teruah–Tekiah ${p.n}`,
   setGedolah: 'Tekiah Gedolah',
-  setCalibration: 'Calibration — Tashrat (Tekiah · Shevarim · Teruah · Tekiah)',
+  setCalibration: 'Calibration — sitting tashrat (one breath)',
   calloutTekiah: 'Tekiah',
   calloutShevarim: 'Shevarim',
   calloutTeruah: 'Teruah',
+  calloutShevarimTeruah: 'Shevarim-Teruah',
   calloutGedolah: 'Tekiah Gedolah',
+  breathNone: 'Do not breathe between shevarim and teruah',
+  breathBetween: 'Breathe between shevarim and teruah',
   blastTekiah: 'Tekiah',
   blastShevarim: 'Shevarim',
   blastTeruah: 'Teruah',

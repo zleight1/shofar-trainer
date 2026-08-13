@@ -4,6 +4,7 @@ import { prepareAnalysisEnvelope } from './envelope';
 import { segmentRecording } from './onsets';
 import type { RecordingResult } from './capture';
 import { DEFAULT_HALACHA_CONFIG } from '../halacha/types';
+import { partitionShevarimTeruah } from '../halacha/rules';
 import { analyzeAttacks } from './spectral-flux';
 import { getRoomProfile, rememberEchoFromDiagnosis } from '../store/diagnostics';
 
@@ -110,6 +111,28 @@ export function analyzeSingleBlast(
     return { type: 'teruah', segments, totalDurationSec: dur };
   }
 
+  if (expectedType === 'shevarim_teruah') {
+    rememberEchoFromDiagnosis(picked.diagnosis);
+    let segments = attacks;
+    if (segments.length < 8) {
+      const { noteSegments, rawSegments } = amplitudeNotes(recording, unitSec);
+      segments = noteSegments.length >= 8 ? noteSegments : rawSegments;
+    }
+    if (segments.length === 0) {
+      return {
+        type: 'shevarim_teruah',
+        segments: [fullSegment(recording)],
+        totalDurationSec: dur,
+      };
+    }
+    return {
+      type: 'shevarim_teruah',
+      segments,
+      totalDurationSec: dur,
+      diagnosis: picked.diagnosis,
+    };
+  }
+
   return { type: expectedType, segments: [fullSegment(recording)], totalDurationSec: dur };
 }
 
@@ -118,12 +141,22 @@ export function inferUnitFromBlasts(
   fallback = UNIT_DEFAULT_SEC,
 ): number {
   const teruah = blasts.find((b) => b.type === 'teruah');
-  if (teruah && teruah.totalDurationSec > 0.4) {
-    if (teruah.segments.length >= 5) {
-      const durs = teruah.segments.map((s) => s.durationSec).sort((a, b) => a - b);
+  const st = blasts.find((b) => b.type === 'shevarim_teruah');
+  const teruahNotes = teruah?.segments?.length
+    ? teruah.segments
+    : st
+      ? partitionShevarimTeruah(st.segments, fallback).teruah
+      : [];
+  const teruahTotal = teruah
+    ? teruah.totalDurationSec
+    : teruahNotes.reduce((sum, n) => sum + n.durationSec, 0);
+
+  if (teruahNotes.length >= 5 || teruahTotal > 0.4) {
+    if (teruahNotes.length >= 5) {
+      const durs = teruahNotes.map((s) => s.durationSec).sort((a, b) => a - b);
       return clampUnit(durs[Math.floor(durs.length / 2)]);
     }
-    return clampUnit(teruah.totalDurationSec / DEFAULT_HALACHA_CONFIG.minTeruahBlasts);
+    return clampUnit(teruahTotal / DEFAULT_HALACHA_CONFIG.minTeruahBlasts);
   }
 
   const shevarim = blasts.find((b) => b.type === 'shevarim');

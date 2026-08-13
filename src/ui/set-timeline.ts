@@ -42,9 +42,12 @@ export function expectedNoteCount(type: BlastType): number | null {
       return DEFAULT_HALACHA_CONFIG.shevarimNoteCount;
     case 'teruah':
       return DEFAULT_HALACHA_CONFIG.minTeruahBlasts;
+    case 'shevarim_teruah':
+      return (
+        DEFAULT_HALACHA_CONFIG.shevarimNoteCount + DEFAULT_HALACHA_CONFIG.minTeruahBlasts
+      );
     case 'tekiah':
     case 'tekiah_gedolah':
-    case 'shevarim_teruah':
       return null;
     default: {
       const _exhaustive: never = type;

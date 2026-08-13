@@ -86,7 +86,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const n = Number(set.id.match(/(\d+)/)?.[1] ?? 1);
     switch (set.pattern) {
       case 'tst':
-        return set.id.startsWith('calibration') ? c.setCalibration : c.setTst({ n });
+        return set.id.startsWith('calibration')
+          ? c.setCalibration
+          : set.stBreath === 'between'
+            ? c.setTstStand({ n })
+            : c.setTst({ n });
       case 'tsh':
         return c.setTsh({ n });
       case 'tt':
@@ -98,6 +102,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
         return _exhaustive;
       }
     }
+  }
+
+  function visibleCallout(step: GuidedBlastStep, locale: Locale): string {
+    const type = step.skipVoice ? step.type : step.callout;
+    return calloutForType(type, locale);
   }
 
   function render(): void {
@@ -143,11 +152,16 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       if (!step) {
         callout.textContent = '…';
       } else if (running) {
-        callout.textContent = c.blow({ callout: calloutForType(step.type, locale) });
+        callout.textContent = c.blow({ callout: visibleCallout(step, locale) });
       } else {
-        callout.textContent = calloutForType(step.type, locale);
+        callout.textContent = visibleCallout(step, locale);
       }
       container.appendChild(callout);
+      if (step?.breath === 'none') {
+        container.appendChild(el('p', 'breath-cue none', c.breathNone));
+      } else if (step?.breath === 'between') {
+        container.appendChild(el('p', 'breath-cue between', c.breathBetween));
+      }
 
       const timingEl = el('div', 'live-timing');
       if (currentTiming) {
@@ -357,7 +371,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     currentTiming = null;
     render();
 
-    await speakCallout(clipIdForBlast(step.type));
+    if (!step.skipVoice) {
+      await speakCallout(clipIdForBlast(step.callout));
+    } else {
+      await delay(350);
+    }
 
     if (abortSession || !mounted || !session.isOpen()) {
       running = false;

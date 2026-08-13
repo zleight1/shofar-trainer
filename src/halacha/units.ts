@@ -15,9 +15,12 @@ export function unitsFor(
         ? config.tashratTekiahUnits
         : config.minTekiahUnits;
     case 'shevarim':
-    case 'shevarim_teruah':
     case 'teruah':
       return config.minTeruahBlasts;
+    case 'shevarim_teruah':
+      return pattern === 'tst'
+        ? config.tashratTekiahUnits
+        : config.minTeruahBlasts + config.minShevarimNoteUnits * config.shevarimNoteCount;
     default: {
       const _exhaustive: never = blastRole;
       return _exhaustive;

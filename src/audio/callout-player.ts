@@ -8,6 +8,7 @@ export type CalloutClipId =
   | 'tekiah'
   | 'shevarim'
   | 'teruah'
+  | 'shevarimTeruah'
   | 'gedolah'
   | 'calibrateComplete';
 
@@ -26,8 +27,9 @@ export function clipIdForBlast(type: BlastType): CalloutClipId {
     case 'tekiah':
       return 'tekiah';
     case 'shevarim':
-    case 'shevarim_teruah':
       return 'shevarim';
+    case 'shevarim_teruah':
+      return 'shevarimTeruah';
     case 'teruah':
       return 'teruah';
     case 'tekiah_gedolah':
@@ -99,6 +101,7 @@ export async function preloadCallouts(locale: Locale = getLocale()): Promise<voi
     'tekiah',
     'shevarim',
     'teruah',
+    'shevarimTeruah',
     'gedolah',
     'calibrateComplete',
   ];
@@ -164,6 +167,8 @@ function clipSpeechText(id: CalloutClipId, locale: Locale): string {
       return c.calloutShevarim;
     case 'teruah':
       return c.calloutTeruah;
+    case 'shevarimTeruah':
+      return c.calloutShevarimTeruah;
     case 'gedolah':
       return c.calloutGedolah;
     case 'calibrateComplete':

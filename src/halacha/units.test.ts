@@ -11,6 +11,10 @@ describe('unitsFor', () => {
     expect(unitsFor('tt', 'tekiah')).toBe(9);
   });
 
+  it('uses 18 units for one-breath shevarim-teruah length', () => {
+    expect(unitsFor('tst', 'shevarim_teruah')).toBe(18);
+  });
+
   it('uses 18 units for gedolah', () => {
     expect(unitsFor('gedolah', 'tekiah_gedolah')).toBe(18);
   });
@@ -19,5 +23,9 @@ describe('unitsFor', () => {
 describe('inferPattern', () => {
   it('infers tst when shevarim and teruah are present', () => {
     expect(inferPattern(['tekiah', 'shevarim', 'teruah', 'tekiah'])).toBe('tst');
+  });
+
+  it('infers tst from a combined shevarim-teruah blast', () => {
+    expect(inferPattern(['tekiah', 'shevarim_teruah', 'tekiah'])).toBe('tst');
   });
 });

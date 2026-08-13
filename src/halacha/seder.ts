@@ -88,19 +88,24 @@ export function getSetStepsForGroup(groupLabel: string): SederStep[] {
 }
 
 /** Steps that form a complete analyzable set (e.g. T-Sh-T as one recording) */
+export type ShevarimTeruahBreath = 'none' | 'between';
+
 export interface SetGroup {
   id: string;
   label: string;
   stepIds: string[];
   pattern: SetPattern;
+  /** Sitting first-30: one breath. Later tashrat: breathe between. */
+  stBreath?: ShevarimTeruahBreath;
 }
 
 export const SET_GROUPS: SetGroup[] = [
   ...Array.from({ length: 3 }, (_, i) => ({
     id: `tst-set-${i + 1}`,
-    label: `Tekiah–Shevarim–Teruah–Tekiah ${i + 1}`,
-    stepIds: [`tst-${i + 1}-t1`, `tst-${i + 1}-sh`, `tst-${i + 1}-tr`, `tst-${i + 1}-t2`],
+    label: `Sitting Tekiah–Shevarim–Teruah–Tekiah ${i + 1}`,
+    stepIds: [`tst-${i + 1}-t1`, `tst-${i + 1}-st`, `tst-${i + 1}-t2`],
     pattern: 'tst' as const,
+    stBreath: 'none' as const,
   })),
   ...Array.from({ length: 3 }, (_, i) => ({
     id: `tsh-set-${i + 1}`,
@@ -113,6 +118,18 @@ export const SET_GROUPS: SetGroup[] = [
     label: `Tekiah–Teruah–Tekiah ${i + 1}`,
     stepIds: [`tt-${i + 1}-t1`, `tt-${i + 1}-tr`, `tt-${i + 1}-t2`],
     pattern: 'tt' as const,
+  })),
+  ...Array.from({ length: 3 }, (_, i) => ({
+    id: `tst-stand-set-${i + 1}`,
+    label: `Standing Tekiah–Shevarim–Teruah–Tekiah ${i + 1}`,
+    stepIds: [
+      `tst-stand-${i + 1}-t1`,
+      `tst-stand-${i + 1}-sh`,
+      `tst-stand-${i + 1}-tr`,
+      `tst-stand-${i + 1}-t2`,
+    ],
+    pattern: 'tst' as const,
+    stBreath: 'between' as const,
   })),
   {
     id: 'gedolah-set',

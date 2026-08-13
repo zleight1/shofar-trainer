@@ -38,6 +38,28 @@ describe('inferUnitFromBlasts', () => {
     ];
     expect(inferUnitFromBlasts(blasts)).toBeCloseTo(0.11, 2);
   });
+
+  it('derives unit from the teruah half of a shevarim-teruah blast', () => {
+    const blasts: ClassifiedBlast[] = [
+      {
+        type: 'shevarim_teruah',
+        segments: [
+          ...Array.from({ length: 3 }, (_, i) => ({
+            startSample: i * 100,
+            endSample: i * 100 + 80,
+            durationSec: 0.3,
+          })),
+          ...Array.from({ length: 9 }, (_, i) => ({
+            startSample: 400 + i * 50,
+            endSample: 400 + i * 50 + 40,
+            durationSec: 0.11,
+          })),
+        ],
+        totalDurationSec: 1.9,
+      },
+    ];
+    expect(inferUnitFromBlasts(blasts)).toBeCloseTo(0.11, 2);
+  });
 });
 
 describe('expectedDurationForType', () => {
@@ -72,5 +94,12 @@ describe('liveTimingState', () => {
     expect(atFloor.targetMinSec).toBeCloseTo(2.16, 2);
     const long = liveTimingState('tekiah', 12, ctx, 'sounding');
     expect(long.status).toBe('good');
+  });
+
+  it('does not mark one-breath shevarim-teruah too long at shevarim length', () => {
+    const ctx = { unitSec: 0.1, pattern: 'tst' as const };
+    const t = liveTimingState('shevarim_teruah', 1.9, ctx, 'sounding');
+    expect(t.status).toBe('good');
+    expect(t.targetMinSec).toBeCloseTo(1.8, 2);
   });
 });

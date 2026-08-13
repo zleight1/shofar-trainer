@@ -422,6 +422,21 @@ h1, h2, h3 {
   animation: pulse-border 1.2s ease-in-out infinite;
 }
 
+.breath-cue {
+  text-align: center;
+  margin: -0.4rem 0 0.8rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.breath-cue.none {
+  color: var(--accent);
+}
+
+.breath-cue.between {
+  color: #fcd34d;
+}
+
 @keyframes pulse-border {
   0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.3); }
   50% { box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.15); }

@@ -168,10 +168,25 @@ export function scoreRecording(
         break;
       case 'tekiah_gedolah':
         break;
-      case 'shevarim_teruah':
-        issues.push(...checkShevarim(blast, unitSec, config));
-        issues.push(...checkTeruah(blast, config));
+      case 'shevarim_teruah': {
+        const parts = partitionShevarimTeruah(blast.segments, unitSec);
+        const shDur = parts.shevarim.reduce((sum, n) => sum + n.durationSec, 0);
+        const trDur = parts.teruah.reduce((sum, n) => sum + n.durationSec, 0);
+        issues.push(
+          ...checkShevarim(
+            { type: 'shevarim', segments: parts.shevarim, totalDurationSec: shDur },
+            unitSec,
+            config,
+          ),
+        );
+        issues.push(
+          ...checkTeruah(
+            { type: 'teruah', segments: parts.teruah, totalDurationSec: trDur },
+            config,
+          ),
+        );
         break;
+      }
       default: {
         const _exhaustive: never = blast.type;
         void _exhaustive;

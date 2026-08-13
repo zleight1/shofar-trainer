@@ -131,6 +131,39 @@ describe('scoreRecording', () => {
     expect(result.issues.some((i) => i.code === 'opening_tekiah_too_short')).toBe(true);
   });
 
+  it('scores one-breath shevarim-teruah by splitting shevarim and teruah notes', () => {
+    const shevarim = [seg(0.3), seg(0.3), seg(0.3)];
+    const teruah = Array.from({ length: 9 }, () => seg(0.1));
+    const classified: ClassifiedBlast[] = [
+      { type: 'tekiah', segments: [seg(1.9)], totalDurationSec: 1.9 },
+      {
+        type: 'shevarim_teruah',
+        segments: [...shevarim, ...teruah],
+        totalDurationSec: 1.8,
+      },
+      { type: 'tekiah', segments: [seg(1.9)], totalDurationSec: 1.9 },
+    ];
+    const ok = scoreRecording(classified, 0.1, 'tst');
+    expect(ok.issues.some((i) => i.code === 'shevarim_count')).toBe(false);
+    expect(ok.issues.some((i) => i.code === 'teruah_count')).toBe(false);
+
+    const shortTeruah = scoreRecording(
+      [
+        classified[0],
+        {
+          type: 'shevarim_teruah',
+          segments: [...shevarim, ...Array.from({ length: 8 }, () => seg(0.1))],
+          totalDurationSec: 1.7,
+        },
+        classified[2],
+      ],
+      0.1,
+      'tst',
+    );
+    expect(shortTeruah.issues.some((i) => i.code === 'teruah_count')).toBe(true);
+    expect(shortTeruah.passed).toBe(false);
+  });
+
   it('applies the unit floor when middle is 0', () => {
     const classified: ClassifiedBlast[] = [
       { type: 'tekiah', segments: [seg(0.5)], totalDurationSec: 0.5 },

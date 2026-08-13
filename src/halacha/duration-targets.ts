@@ -9,7 +9,7 @@ const SAFETY_CAPS: Record<BlastType, number> = {
   tekiah: 15,
   shevarim: 12,
   teruah: 10,
-  shevarim_teruah: 12,
+  shevarim_teruah: 18,
   tekiah_gedolah: 25,
 };
 

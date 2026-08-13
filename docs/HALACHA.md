@@ -2,7 +2,7 @@
 
 This app is a **training aid**. It is not a ruling. A rav must still give pesak.
 
-The trainer follows **Mishnah Berurah 590:12–15 lechatchila** for Ashkenazi Rema two-breath practice (shevarim, then teruah). Open **Sources** in the app for Hebrew and English citations. Encoded texts are marked. Study-only texts (including Rambam half-length tekiah and SA 590:3 extra-notes leniency) are not used as pass/fail rules.
+The trainer follows **Mishnah Berurah 590:12–15 lechatchila**. Sitting (first 30): shevarim-teruah in **one breath**. Later tashrat: **breathe between** (Rema). The makrei callout is **Shevarim-Teruah** in both cases. Open **Sources** in the app for Hebrew and English citations.
 
 ## Core principle
 
@@ -34,12 +34,13 @@ A shever that lasts ≥ 9 units **fails** as a possible tekiah. Extra shevarim n
 
 The app follows the common Rosh Hashana practice loop:
 
-1. Tekiah–Shevarim–Teruah–Tekiah ×3 (Tashrat)
+1. Tekiah–Shevarim-Teruah–Tekiah ×3 sitting, one breath (first 30)
 2. Tekiah–Shevarim–Tekiah ×3 (Tashat)
 3. Tekiah–Teruah–Tekiah ×3 (Tarat)
-4. Tekiah Gedolah (coaching length only; not a scoring error)
+4. Tekiah–Shevarim-Teruah–Tekiah ×3 standing, breathe between
+5. Tekiah Gedolah (coaching length only; not a scoring error)
 
-Default practice is **two breaths** for shevarim-teruah (Rema). One-breath sitting blasts stay deferred.
+The callout is always **Shevarim-Teruah**. A separate cue says whether to breathe.
 
 ## Live meter
 

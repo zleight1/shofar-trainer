@@ -26,6 +26,7 @@ describe('expectedNoteCount', () => {
   it('asks for nine teruah notes and three shevarim', () => {
     expect(expectedNoteCount('teruah')).toBe(9);
     expect(expectedNoteCount('shevarim')).toBe(3);
+    expect(expectedNoteCount('shevarim_teruah')).toBe(12);
     expect(expectedNoteCount('tekiah')).toBeNull();
   });
 });
