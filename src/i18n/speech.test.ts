@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { findMatchingVoice, shouldSpeakCallouts, utteranceForCallout } from './speech';
+import { findMatchingVoice, shouldSpeakCallouts, unlockSpeechSynthesis, utteranceForCallout } from './speech';
 
 function voice(lang: string): SpeechSynthesisVoice {
   return { lang, name: lang, voiceURI: lang, default: false, localService: true };
@@ -33,5 +33,9 @@ describe('speech helpers', () => {
   it('sets utterance.lang to he-IL when a Hebrew voice exists', () => {
     const u = utteranceForCallout('תקיעה', 'he', [voice('he-IL')]);
     expect(u?.lang).toBe('he-IL');
+  });
+
+  it('unlockSpeechSynthesis does not throw without a synth', () => {
+    expect(() => unlockSpeechSynthesis()).not.toThrow();
   });
 });

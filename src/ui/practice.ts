@@ -14,8 +14,8 @@ import { isDiagnosticsEnabled } from '../store/diagnostics';
 import { calloutForType, catalog, formatLiveLine } from '../i18n/t';
 import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
-import { loadVoices, shouldSpeakCallouts } from '../i18n/speech';
-import { button, el, renderAnalysisFeedback, speakAndWait } from './components';
+import { clipIdForBlast, setCalloutGate, speakCallout, unlockCallouts } from '../audio/callout-player';
+import { button, el, renderAnalysisFeedback } from './components';
 import { renderAppHeader, renderDisclaimer } from './chrome';
 import { attachLiveWaveform } from './live-waveform';
 import { BLAST_ABBREV, renderSetTimeline } from './set-timeline';
@@ -53,7 +53,6 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let stopLive: (() => void) | null = null;
   let abortSession = false;
   let running = false;
-  let heVoiceNotice = false;
   let mounted = true;
 
   const container = el('div', 'practice-view');
@@ -141,12 +140,12 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
     if (phase !== 'set_review') {
       const callout = el('div', running ? 'callout recording' : 'callout preparing');
-      if (!running) {
-        callout.textContent = c.listen;
-      } else if (!step) {
+      if (!step) {
         callout.textContent = '…';
-      } else {
+      } else if (running) {
         callout.textContent = c.blow({ callout: calloutForType(step.type, locale) });
+      } else {
+        callout.textContent = calloutForType(step.type, locale);
       }
       container.appendChild(callout);
 
@@ -223,11 +222,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     if (isDiagnosticsEnabled()) {
       container.appendChild(el('p', 'diagnostics-muted', c.diagnosticsHint));
     }
-    if (heVoiceNotice) {
-      container.appendChild(el('p', 'speech-notice', c.speechHeMissing));
-    }
     const startBtn = button(c.startGuided, 'btn primary');
-    startBtn.addEventListener('click', () => void startSession());
+    startBtn.addEventListener('click', () => {
+      unlockCallouts();
+      void startSession();
+    });
     container.appendChild(startBtn);
     const backBtn = button(c.back, 'btn secondary');
     backBtn.addEventListener('click', options.onBack);
@@ -276,6 +275,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     phase = 'calibration';
     options.onBusy?.(true);
     await session.openMic();
+    setCalloutGate({
+      context: session.getContext(),
+      pause: () => session.muteForPlayback(),
+      resume: () => session.unmuteAfterPlayback(),
+    });
     render();
     await runCalibration();
   }
@@ -302,7 +306,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     middleDurationSec = 0;
     render();
     await delay(800);
-    await speakAndWait(catalog(getLocale()).calibrateCompleteSpeech);
+    await speakCallout('calibrateComplete');
     await runCurrentSet();
   }
 
@@ -353,7 +357,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     currentTiming = null;
     render();
 
-    await speakAndWait(calloutForType(step.type, getLocale()));
+    await speakCallout(clipIdForBlast(step.type));
 
     if (abortSession || !mounted || !session.isOpen()) {
       running = false;
@@ -452,6 +456,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     if (setIndex >= SET_GROUPS.length - 1) {
       phase = 'done';
       render();
+      setCalloutGate({});
       session.close();
       return;
     }
@@ -468,16 +473,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   async function teardownAndBack(): Promise<void> {
     abortSession = true;
     detachLive();
+    setCalloutGate({});
     session.close();
     options.onBusy?.(false);
     options.onBack();
   }
-
-  void loadVoices().then((voices) => {
-    if (!mounted) return;
-    heVoiceNotice = getLocale() === 'he' && !shouldSpeakCallouts('he', voices);
-    if (phase === 'idle') render();
-  });
 
   options.onRefreshRegister?.(render);
   render();
@@ -486,6 +486,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     mounted = false;
     abortSession = true;
     detachLive();
+    setCalloutGate({});
     session.close();
     options.onBusy?.(false);
     container.remove();

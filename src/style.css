@@ -407,6 +407,8 @@ h1, h2, h3 {
 .callout.preparing {
   color: var(--accent);
   background: var(--surface2);
+  font-size: clamp(2.1rem, 9vw, 3.4rem);
+  letter-spacing: 0.02em;
 }
 
 .preparing-label {

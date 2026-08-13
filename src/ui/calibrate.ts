@@ -5,7 +5,8 @@ import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { getUnitDuration, setUnitDuration } from '../store/sessions';
 import { renderAppHeader } from './chrome';
-import { button, el, speakAndWait } from './components';
+import { button, el } from './components';
+import { speakCallout, unlockCallouts } from '../audio/callout-player';
 import { attachLiveWaveform } from './live-waveform';
 
 export interface CalibrateMountOptions {
@@ -73,7 +74,10 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
     const saveBtn = button(c.saveContinue, 'btn');
     const backBtn = button(c.skipForNow, 'btn secondary');
 
-    recBtn.addEventListener('click', () => void toggleRecord());
+    recBtn.addEventListener('click', () => {
+      if (!recording) unlockCallouts();
+      void toggleRecord();
+    });
     saveBtn.addEventListener('click', () => {
       if (detectedUnit) {
         setUnitDuration(detectedUnit);
@@ -105,7 +109,7 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
       preparing = true;
       options.onBusy?.(true);
       render();
-      await speakAndWait(catalog(getLocale()).calloutTeruah);
+      await speakCallout('teruah');
       preparing = false;
       recorder = new AudioRecorder();
       await recorder.start();

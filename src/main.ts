@@ -3,6 +3,7 @@ import { getUnitDuration } from './store/sessions';
 import { isDiagnosticsEnabled, setDiagnosticsEnabled } from './store/diagnostics';
 import { applyLocale, getLocale, setLocale, type Locale } from './i18n/locale';
 import { catalog } from './i18n/t';
+import { unlockCallouts } from './audio/callout-player';
 import { mountCalibrate } from './ui/calibrate';
 import { button, el } from './ui/components';
 import { renderAppHeader, renderDisclaimer } from './ui/chrome';
@@ -113,8 +114,18 @@ function renderHome(
   }
 
   const nav = el('nav', 'home-nav');
-  nav.appendChild(makeNavBtn(c.navPractice, () => navigate('practice')));
-  nav.appendChild(makeNavBtn(c.navCalibrate, () => navigate('calibrate')));
+  nav.appendChild(
+    makeNavBtn(c.navPractice, () => {
+      unlockCallouts();
+      navigate('practice');
+    }),
+  );
+  nav.appendChild(
+    makeNavBtn(c.navCalibrate, () => {
+      unlockCallouts();
+      navigate('calibrate');
+    }),
+  );
   nav.appendChild(makeNavBtn(c.navHistory, () => navigate('history')));
   nav.appendChild(makeNavBtn(c.navSources, () => navigate('sources')));
   shell.appendChild(nav);

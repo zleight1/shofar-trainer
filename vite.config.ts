@@ -5,7 +5,10 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.svg'],
+      includeAssets: ['icon.svg', 'callouts/*.wav'],
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,wav}'],
+      },
       manifest: {
         name: 'Shofar Trainer',
         short_name: 'Shofar',

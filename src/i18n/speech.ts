@@ -1,7 +1,24 @@
 import type { Locale } from './locale';
+import { getLocale } from './locale';
 
 let voicesCache: SpeechSynthesisVoice[] | null = null;
 let voicesInflight: Promise<SpeechSynthesisVoice[]> | null = null;
+
+/** Must run in a tap handler. iOS ignores later speak() without this. */
+export function unlockSpeechSynthesis(): void {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+  const synth = window.speechSynthesis;
+  try {
+    synth.resume();
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    u.rate = 10;
+    synth.speak(u);
+    synth.cancel();
+  } catch {
+    // ignore
+  }
+}
 
 export function findMatchingVoice(
   voices: SpeechSynthesisVoice[],
@@ -63,4 +80,55 @@ export function loadVoices(): Promise<SpeechSynthesisVoice[]> {
     window.speechSynthesis.addEventListener('voiceschanged', finish, { once: true });
   });
   return voicesInflight;
+}
+
+export async function speakAndWait(text: string, postDelayMs = 500): Promise<void> {
+  const locale = getLocale();
+  const voices = await loadVoices();
+  if (!shouldSpeakCallouts(locale, voices)) {
+    await delay(postDelayMs);
+    return;
+  }
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    await delay(postDelayMs);
+    return;
+  }
+
+  const synth = window.speechSynthesis;
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    let keepAlive: ReturnType<typeof setInterval> | undefined;
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      if (keepAlive !== undefined) clearInterval(keepAlive);
+      setTimeout(resolve, postDelayMs);
+    };
+
+    if (synth.speaking || synth.pending) synth.cancel();
+    synth.resume();
+
+    const u = utteranceForCallout(text, locale, voices);
+    if (!u) {
+      done();
+      return;
+    }
+    u.volume = 1;
+    u.onend = done;
+    u.onerror = done;
+    synth.speak(u);
+    synth.resume();
+
+    keepAlive = setInterval(() => {
+      if (synth.paused) synth.resume();
+    }, 200);
+    setTimeout(() => {
+      if (!synth.speaking && !synth.pending) done();
+    }, 400);
+    setTimeout(done, 6000);
+  });
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }

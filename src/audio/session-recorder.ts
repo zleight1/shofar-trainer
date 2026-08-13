@@ -1,4 +1,5 @@
 import type { RecordingResult } from './capture';
+import { getOrCreatePlaybackContext, markPlaybackContextClosed } from './callout-player';
 
 /** Keeps the mic open across multiple blast captures in one practice session */
 export class SessionRecorder {
@@ -11,6 +12,7 @@ export class SessionRecorder {
   private capturing = false;
   private sampleRate = 44100;
   private open = false;
+  private outputConnected = false;
 
   getAnalyser(): AnalyserNode | null {
     return this.analyser;
@@ -34,8 +36,14 @@ export class SessionRecorder {
         autoGainControl: false,
       },
     });
-    this.context = new AudioContext();
+    this.context = getOrCreatePlaybackContext();
+    if (!this.context) {
+      this.context = new AudioContext();
+    }
     this.sampleRate = this.context.sampleRate;
+    if (this.context.state === 'suspended') {
+      await this.context.resume();
+    }
 
     const source = this.context.createMediaStreamSource(this.stream);
     this.analyser = this.context.createAnalyser();
@@ -56,7 +64,38 @@ export class SessionRecorder {
     source.connect(this.processor);
     this.processor.connect(this.silent);
     this.silent.connect(this.context.destination);
+    this.outputConnected = true;
     this.open = true;
+    if (this.context.state === 'suspended') {
+      void this.context.resume();
+    }
+  }
+
+  getContext(): AudioContext | null {
+    return this.context;
+  }
+
+  muteForPlayback(): void {
+    this.stream?.getAudioTracks().forEach((t) => {
+      t.enabled = false;
+    });
+    if (this.silent && this.outputConnected) {
+      this.silent.disconnect();
+      this.outputConnected = false;
+    }
+    if (this.context?.state === 'suspended') {
+      void this.context.resume();
+    }
+  }
+
+  unmuteAfterPlayback(): void {
+    this.stream?.getAudioTracks().forEach((t) => {
+      t.enabled = true;
+    });
+    if (this.silent && this.context && !this.outputConnected) {
+      this.silent.connect(this.context.destination);
+      this.outputConnected = true;
+    }
   }
 
   beginCapture(): void {
@@ -93,6 +132,8 @@ export class SessionRecorder {
     this.context = null;
     this.stream = null;
     this.open = false;
+    this.outputConnected = false;
     this.chunks = [];
+    markPlaybackContextClosed();
   }
 }

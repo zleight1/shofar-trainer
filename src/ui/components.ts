@@ -3,7 +3,7 @@ import type { DetailedAnalysisResult } from '../audio/analyze';
 import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { blastLabel, catalog, formatIssue } from '../i18n/t';
-import { cachedVoices, loadVoices, shouldSpeakCallouts, utteranceForCallout } from '../i18n/speech';
+import { speakAndWait as speakUtterance } from '../i18n/speech';
 
 export interface FeedbackSections {
   showStatus?: boolean;
@@ -86,44 +86,11 @@ export function renderAnalysisFeedback(
 }
 
 export function speak(text: string): void {
-  void speakAndWait(text, 0);
+  void speakUtterance(text, 0);
 }
 
 export async function speakAndWait(text: string, postDelayMs = 500): Promise<void> {
-  const locale = getLocale();
-  const voices = locale === 'en' ? cachedVoices() : await loadVoices();
-  if (!shouldSpeakCallouts(locale, voices)) {
-    await delay(postDelayMs);
-    return;
-  }
-  if (!('speechSynthesis' in window)) {
-    await delay(postDelayMs);
-    return;
-  }
-
-  await new Promise<void>((resolve) => {
-    window.speechSynthesis.cancel();
-    let settled = false;
-    const done = () => {
-      if (settled) return;
-      settled = true;
-      setTimeout(resolve, postDelayMs);
-    };
-
-    const u = utteranceForCallout(text, locale, voices);
-    if (!u) {
-      done();
-      return;
-    }
-    u.onend = done;
-    u.onerror = done;
-    window.speechSynthesis.speak(u);
-    setTimeout(done, 6000);
-  });
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+  await speakUtterance(text, postDelayMs);
 }
 
 export function el<K extends keyof HTMLElementTagNameMap>(
