@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateTestSignal } from './capture';
 import { analyzeSingleBlast } from './analyze-blast';
+import { checkTeruah } from '../halacha/rules';
 
 const SR = 44100;
 
@@ -44,6 +45,16 @@ function hardClip(samples: Float32Array): Float32Array {
   return out;
 }
 
+function addEcho(src: Float32Array, delaySec: number, gain: number): Float32Array {
+  const delay = Math.floor(delaySec * SR);
+  const out = new Float32Array(src.length + delay);
+  out.set(src);
+  for (let i = 0; i < src.length; i++) {
+    out[i + delay] += src[i] * gain;
+  }
+  return out;
+}
+
 function recording(samples: Float32Array) {
   return { samples, sampleRate: SR, durationSec: samples.length / SR };
 }
@@ -57,7 +68,9 @@ describe('analyzeSingleBlast teruah', () => {
     }));
     const samples = generateTestSignal(SR, bursts);
     const result = analyzeSingleBlast(recording(samples), unit, 'teruah');
-    expect(result.segments.length).toBeGreaterThanOrEqual(7);
+    expect(result.segments.length).toBeGreaterThanOrEqual(9);
+    expect(result.segments.length).toBeLessThanOrEqual(12);
+    expect(checkTeruah(result).some((i) => i.code === 'teruah_count')).toBe(false);
   });
 
   it('splits nine clipped teruah notes that still ring between attacks', () => {
@@ -68,7 +81,73 @@ describe('analyzeSingleBlast teruah', () => {
       ring(samples, startSec + 0.07, 0.04, 2.5, 420, 0.018);
     }
     const result = analyzeSingleBlast(recording(hardClip(samples)), 0.1, 'teruah');
-    expect(result.segments.length).toBeGreaterThanOrEqual(7);
+    expect(result.segments.length).toBeGreaterThanOrEqual(9);
+    expect(result.segments.length).toBeLessThanOrEqual(12);
+    expect(checkTeruah(result).some((i) => i.code === 'teruah_count')).toBe(false);
+  });
+
+  it('does not invent extra notes on a 12-blast clipped teruah with vibrato', () => {
+    const samples = new Float32Array(Math.floor(2.2 * SR));
+    for (let n = 0; n < 12; n++) {
+      const startSec = 0.25 + n * 0.12;
+      const start = Math.floor(startSec * SR);
+      const end = Math.floor((startSec + 0.08) * SR);
+      for (let i = start; i < end && i < samples.length; i++) {
+        const t = (i - start) / SR;
+        const env = Math.min(1, t * 80) * Math.min(1, (0.08 - t) * 80);
+        const vib = 1 + 0.35 * Math.sin(2 * Math.PI * 18 * (startSec + t));
+        samples[i] += Math.sin(2 * Math.PI * 380 * (startSec + t)) * 8 * env * vib;
+      }
+      ring(samples, startSec + 0.08, 0.05, 3, 380, 0.02);
+    }
+    const result = analyzeSingleBlast(recording(hardClip(samples)), 0.1, 'teruah');
+    expect(result.segments.length).toBeGreaterThanOrEqual(9);
+    expect(result.segments.length).toBeLessThanOrEqual(16);
+  });
+
+  it('counts nine clear notes through slapback and late room echo', () => {
+    const samples = new Float32Array(Math.floor(1.8 * SR));
+    for (let i = 0; i < 9; i++) {
+      burst(samples, 0.2 + i * 0.12, 0.07, 8, 400);
+    }
+    const withEcho = addEcho(addEcho(hardClip(samples), 0.04, 0.4), 0.2, 0.28);
+    const result = analyzeSingleBlast(recording(withEcho), 0.1, 'teruah');
+    expect(result.segments.length).toBeGreaterThanOrEqual(9);
+    expect(result.segments.length).toBeLessThanOrEqual(12);
+    expect(checkTeruah(result).some((i) => i.code === 'teruah_count')).toBe(false);
+  });
+
+  it('still finds nine notes when spacing is slightly uneven', () => {
+    const samples = new Float32Array(Math.floor(1.8 * SR));
+    const starts = [0.2, 0.3, 0.44, 0.54, 0.64, 0.79, 0.9, 1.02, 1.13];
+    for (const startSec of starts) {
+      burst(samples, startSec, 0.07, 8, 400);
+    }
+    const result = analyzeSingleBlast(recording(hardClip(samples)), 0.1, 'teruah');
+    expect(result.segments.length).toBeGreaterThanOrEqual(9);
+    expect(result.segments.length).toBeLessThanOrEqual(12);
+    expect(checkTeruah(result).some((i) => i.code === 'teruah_count')).toBe(false);
+  });
+
+  it('does not let late echo invent a ninth note from eight', () => {
+    const samples = new Float32Array(Math.floor(1.7 * SR));
+    for (let i = 0; i < 8; i++) {
+      burst(samples, 0.2 + i * 0.12, 0.07, 8, 400);
+    }
+    const withEcho = addEcho(hardClip(samples), 0.2, 0.35);
+    const result = analyzeSingleBlast(recording(withEcho), 0.1, 'teruah');
+    expect(result.segments.length).toBeLessThan(9);
+    expect(checkTeruah(result).some((i) => i.code === 'teruah_count')).toBe(true);
+  });
+
+  it('fails eight dry notes as short of nine', () => {
+    const samples = new Float32Array(Math.floor(1.5 * SR));
+    for (let i = 0; i < 8; i++) {
+      burst(samples, 0.2 + i * 0.12, 0.07, 8, 400);
+    }
+    const result = analyzeSingleBlast(recording(hardClip(samples)), 0.1, 'teruah');
+    expect(result.segments.length).toBeLessThan(9);
+    expect(checkTeruah(result).some((i) => i.code === 'teruah_count')).toBe(true);
   });
 });
 

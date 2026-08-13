@@ -4,7 +4,8 @@ import { prepareAnalysisEnvelope } from './envelope';
 import { segmentRecording } from './onsets';
 import type { RecordingResult } from './capture';
 import { DEFAULT_HALACHA_CONFIG } from '../halacha/types';
-import { segmentAttacks } from './spectral-flux';
+import { analyzeAttacks } from './spectral-flux';
+import { getRoomProfile, rememberEchoFromDiagnosis } from '../store/diagnostics';
 
 function fullSegment(recording: RecordingResult): BlastSegment {
   return {
@@ -53,17 +54,28 @@ export function analyzeSingleBlast(
     };
   }
 
-  const attacks = segmentAttacks(recording.samples, recording.sampleRate, {
+  const picked = analyzeAttacks(recording.samples, recording.sampleRate, {
     minDistanceSec:
-      expectedType === 'shevarim' ? Math.max(0.1, unitSec * 1.2) : Math.max(0.032, unitSec * 0.35),
+      expectedType === 'shevarim' ? Math.max(0.1, unitSec * 1.2) : Math.max(0.065, unitSec * 0.7),
     minBlastSec:
       expectedType === 'shevarim' ? Math.max(0.08, unitSec * 0.9) : Math.max(0.028, unitSec * 0.35),
+    isochronous: expectedType === 'teruah',
+    echoLagSec: getRoomProfile()?.echoLagSec ?? null,
   });
+  const attacks = picked.segments;
+  if (expectedType === 'teruah') {
+    rememberEchoFromDiagnosis(picked.diagnosis);
+  }
 
   if (expectedType === 'shevarim') {
     const fromAttacks = pickShevarimNotes(attacks);
     if (fromAttacks.length >= 2) {
-      return { type: 'shevarim', segments: fromAttacks, totalDurationSec: dur };
+      return {
+        type: 'shevarim',
+        segments: fromAttacks,
+        totalDurationSec: dur,
+        diagnosis: picked.diagnosis,
+      };
     }
     const { noteSegments, rawSegments } = amplitudeNotes(recording, unitSec);
     const minNote = Math.max(0.06, unitSec * 0.8);
@@ -79,7 +91,12 @@ export function analyzeSingleBlast(
 
   if (expectedType === 'teruah') {
     if (attacks.length >= 5) {
-      return { type: 'teruah', segments: attacks, totalDurationSec: dur };
+      return {
+        type: 'teruah',
+        segments: attacks,
+        totalDurationSec: dur,
+        diagnosis: picked.diagnosis,
+      };
     }
     const { noteSegments, rawSegments } = amplitudeNotes(recording, unitSec);
     const minBlast = Math.max(0.035, unitSec * 0.5);

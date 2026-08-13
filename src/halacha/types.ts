@@ -12,6 +12,13 @@ export interface ClassifiedBlast {
   type: BlastType;
   segments: BlastSegment[];
   totalDurationSec: number;
+  diagnosis?: {
+    rawPeakCount: number;
+    keptCount: number;
+    droppedEchoCount: number;
+    echoLagSec: number | null;
+    onsetSec: number[];
+  };
 }
 
 export interface HalachaConfig {
