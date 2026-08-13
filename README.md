@@ -27,6 +27,19 @@ npm run preview
 
 Install via browser "Add to Home Screen" / "Install app" when offered. The install name stays English; in-app chrome follows the selected language.
 
+## Hosting
+
+The app is a static Vite PWA. Production is Cloudflare Pages (same path as `web-mishna`).
+
+- Live URL after the first successful deploy: `https://shofar-trainer.pages.dev`
+- Push to `main` builds, tests, and deploys. Pull requests get a preview URL.
+- HTTPS is required for the microphone.
+
+This repo needs the same GitHub Actions secrets as `web-mishna`:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
 ## Usage
 
 1. **Calibrate** — Blow a teruah-style blast. The app learns your **unit** duration (shortest note length).
@@ -58,10 +71,6 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 npm test
 npm run build
 ```
-
-## Local git only
-
-This repo is intended to stay local under `~/work/shofar-trainer`. No remote required.
 
 ## Future improvements
 
