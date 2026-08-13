@@ -10,19 +10,16 @@ import { analyzeSingleBlast, buildGuidedSetAnalysis, inferUnitFromBlasts } from 
 import { waitForBlastEnd, type AutoStopResult } from '../audio/auto-stop';
 import { SessionRecorder } from '../audio/session-recorder';
 import { getUnitDuration, saveSession, setUnitDuration } from '../store/sessions';
-import { blastLabel, calloutForType, catalog, formatLiveLine } from '../i18n/t';
+import { isDiagnosticsEnabled } from '../store/diagnostics';
+import { calloutForType, catalog, formatLiveLine } from '../i18n/t';
 import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { loadVoices, shouldSpeakCallouts } from '../i18n/speech';
-import {
-  button,
-  el,
-  renderAnalysisFeedback,
-  renderWaveform,
-  speakAndWait,
-} from './components';
+import { button, el, renderAnalysisFeedback, speakAndWait } from './components';
 import { renderAppHeader, renderDisclaimer } from './chrome';
 import { attachLiveWaveform } from './live-waveform';
+import { BLAST_ABBREV, renderSetTimeline } from './set-timeline';
+import { renderDiagnosticsPanel, type BlastAudioClip } from './diagnostics-panel';
 import type { DetailedAnalysisResult } from '../audio/analyze';
 
 export interface PracticeMountOptions {
@@ -50,8 +47,8 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let unitSec = getUnitDuration() ?? 0.1;
   let middleDurationSec = 0;
   let setBlasts: ClassifiedBlast[] = [];
+  let setAudio: BlastAudioClip[] = [];
   let lastAnalysis: DetailedAnalysisResult | null = null;
-  let lastSamples: Float32Array | null = null;
   let currentTiming: LiveTimingState | null = null;
   let stopLive: (() => void) | null = null;
   let abortSession = false;
@@ -139,39 +136,57 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
     const setCard = el('div', 'set-card');
     setCard.appendChild(el('h3', '', setLabel(set)));
-    setCard.appendChild(el('div', 'step-dots', renderStepDots(steps, stepIndex)));
+    setCard.appendChild(renderStepDots(steps, phase === 'set_review' ? steps.length : stepIndex));
     container.appendChild(setCard);
 
-    const callout = el('div', running ? 'callout recording' : 'callout preparing');
-    if (phase === 'set_review') {
-      callout.textContent = c.setComplete;
-    } else if (!running) {
-      callout.textContent = c.listen;
-    } else if (!step) {
-      callout.textContent = '…';
-    } else {
-      callout.textContent = c.blow({ callout: calloutForType(step.type, locale) });
+    if (phase !== 'set_review') {
+      const callout = el('div', running ? 'callout recording' : 'callout preparing');
+      if (!running) {
+        callout.textContent = c.listen;
+      } else if (!step) {
+        callout.textContent = '…';
+      } else {
+        callout.textContent = c.blow({ callout: calloutForType(step.type, locale) });
+      }
+      container.appendChild(callout);
+
+      const timingEl = el('div', 'live-timing');
+      if (currentTiming) {
+        timingEl.textContent = formatLiveLine(currentTiming, locale);
+        timingEl.className = `live-timing status-${currentTiming.status}`;
+      }
+      container.appendChild(timingEl);
+
+      const canvas = el('canvas', 'waveform live');
+      canvas.height = 220;
+      container.appendChild(canvas);
+      if (running && session.isOpen()) {
+        stopLive = attachLiveWaveform(canvas, () => session.getAnalyser(), {
+          getTiming: () => currentTiming,
+        });
+      }
     }
-    container.appendChild(callout);
-
-    const timingEl = el('div', 'live-timing');
-    if (currentTiming) {
-      timingEl.textContent = formatLiveLine(currentTiming, locale);
-      timingEl.className = `live-timing status-${currentTiming.status}`;
-    }
-    container.appendChild(timingEl);
-
-    const canvas = el('canvas', 'waveform live');
-    canvas.height = 220;
-    container.appendChild(canvas);
-
-    const feedback = el('div', 'feedback');
-    container.appendChild(feedback);
 
     if (lastAnalysis && phase === 'set_review') {
-      renderAnalysisFeedback(feedback, lastAnalysis, locale);
-      renderBlastSummary(feedback, setBlasts);
-      if (lastSamples) renderWaveform(canvas, lastSamples, lastAnalysis);
+      renderSetTimeline(
+        container,
+        setBlasts,
+        lastAnalysis.issues,
+        lastAnalysis.passed,
+        unitSec,
+        set.pattern,
+        locale,
+      );
+      const feedback = el('div', 'feedback');
+      container.appendChild(feedback);
+      renderAnalysisFeedback(feedback, lastAnalysis, locale, {
+        showStatus: false,
+        showNotes: false,
+        showDetected: false,
+      });
+      if (isDiagnosticsEnabled()) {
+        renderDiagnosticsPanel(container, setBlasts, setAudio, locale, () => render());
+      }
     }
 
     if (unitSec > 0) {
@@ -198,12 +213,6 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     exitBtn.addEventListener('click', () => void teardownAndBack());
     controls.appendChild(exitBtn);
     container.appendChild(controls);
-
-    if (running && session.isOpen()) {
-      stopLive = attachLiveWaveform(canvas, () => session.getAnalyser(), {
-        getTiming: () => currentTiming,
-      });
-    }
   }
 
   function renderIdle(): void {
@@ -211,6 +220,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const c = catalog(locale);
     renderDisclaimer(container, locale);
     container.appendChild(el('p', 'instructions', c.practiceIntro));
+    if (isDiagnosticsEnabled()) {
+      container.appendChild(el('p', 'diagnostics-muted', c.diagnosticsHint));
+    }
     if (heVoiceNotice) {
       container.appendChild(el('p', 'speech-notice', c.speechHeMissing));
     }
@@ -246,20 +258,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     });
   }
 
-  function renderStepDots(steps: GuidedBlastStep[], active: number): string {
-    const labels: Record<string, string> = {
-      tekiah: 'T',
-      shevarim: 'Sh',
-      teruah: 'Tr',
-      tekiah_gedolah: 'T↑',
-      shevarim_teruah: 'Sh+Tr',
-    };
-    return steps
-      .map((s, i) => {
-        const cls = i < active ? 'done' : i === active ? 'active' : '';
-        return `<span class="dot ${cls}">${labels[s.type] ?? '?'}</span>`;
-      })
-      .join('');
+  function renderStepDots(steps: GuidedBlastStep[], active: number): HTMLDivElement {
+    const row = el('div', 'step-dots');
+    for (let i = 0; i < steps.length; i++) {
+      const cls = i < active ? 'done' : i === active ? 'active' : '';
+      row.appendChild(el('span', cls ? `dot ${cls}` : 'dot', BLAST_ABBREV[steps[i].type] ?? '?'));
+    }
+    return row;
   }
 
   async function startSession(): Promise<void> {
@@ -305,6 +310,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const set = SET_GROUPS[setIndex];
     const steps = guidedStepsForSet(set);
     setBlasts = [];
+    setAudio = [];
     middleDurationSec = 0;
 
     for (let i = 0; i < steps.length; i++) {
@@ -319,7 +325,6 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const classified = [...setBlasts];
     const scored = scoreRecording(classified, unitSec, set.pattern);
     lastAnalysis = buildGuidedSetAnalysis(classified, scored);
-    lastSamples = concatClassifiedPreview(classified);
 
     saveSession({
       id: crypto.randomUUID(),
@@ -333,23 +338,10 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     });
 
     running = false;
+    currentTiming = null;
     options.onBusy?.(false);
     phase = 'set_review';
     render();
-  }
-
-  function concatClassifiedPreview(blasts: ClassifiedBlast[]): Float32Array {
-    const total = blasts.reduce((s, b) => s + Math.max(b.totalDurationSec, 0.01), 0);
-    const len = Math.floor(total * 200);
-    const out = new Float32Array(len);
-    let offset = 0;
-    for (const b of blasts) {
-      const n = Math.floor(Math.max(b.totalDurationSec, 0.01) * 200);
-      for (let i = 0; i < n && offset < len; i++, offset++) {
-        out[offset] = 0.3 * Math.sin((offset / n) * Math.PI);
-      }
-    }
-    return out;
   }
 
   async function runGuidedBlast(
@@ -419,6 +411,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const recording = session.endCapture();
     const soundingSec = abortSession || !stopResult ? 0 : stopResult.soundingSec;
     const scoredRecording = { ...recording, durationSec: soundingSec };
+    if (isDiagnosticsEnabled() && recording.samples.length > 0) {
+      setAudio.push({
+        type: step.type,
+        samples: recording.samples,
+        sampleRate: recording.sampleRate,
+      });
+    }
     running = false;
     currentTiming = liveTimingState(
       step.type,
@@ -472,24 +471,6 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     session.close();
     options.onBusy?.(false);
     options.onBack();
-  }
-
-  function renderBlastSummary(target: HTMLElement, blasts: ClassifiedBlast[]): void {
-    const locale = getLocale();
-    const c = catalog(locale);
-    const ul = el('ul', 'blast-summary');
-    for (const b of blasts) {
-      const li = el(
-        'li',
-        '',
-        c.blastDuration({
-          label: blastLabel(b.type, locale),
-          sec: b.totalDurationSec.toFixed(1),
-        }),
-      );
-      ul.appendChild(li);
-    }
-    target.appendChild(ul);
   }
 
   void loadVoices().then((voices) => {

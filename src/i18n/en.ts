@@ -6,6 +6,19 @@ export const en = {
   navCalibrate: 'Calibrate manually',
   navHistory: 'History',
   navSources: 'Sources',
+  diagnosticsToggle: 'Diagnostics',
+  diagnosticsHint:
+    'After each set, show echo compensation and download a WAV of the blasts. Compensation still runs when this is off.',
+  diagnosticsTitle: 'Diagnostics',
+  diagnosticsRoomEcho: (p: { ms: number; dropped: number }) =>
+    `Room echo: ${p.ms} ms tap — dropped ${p.dropped} reflected onset(s)`,
+  diagnosticsRoomSaved: (p: { ms: number }) => `Saved room tap: ${p.ms} ms`,
+  diagnosticsNoEcho: 'No consistent echo tap in this set.',
+  diagnosticsPeaks: (p: { label: string; raw: number; kept: number }) =>
+    `${p.label}: ${p.raw} raw onsets → ${p.kept} scored`,
+  diagnosticsOnsets: (p: { times: string }) => `Onsets: ${p.times}s`,
+  diagnosticsDownload: (p: { label: string }) => `Download ${p.label} WAV`,
+  diagnosticsClearRoom: 'Clear saved room profile',
   disclaimer:
     'This is a training aid, not a ruling. A rav must still give pesak.',
   localeEn: 'EN',
@@ -66,6 +79,10 @@ export const en = {
   blastLine: (p: { label: string; notes: number; sec: string }) =>
     `${p.label}: ${p.notes} note(s), ${p.sec}s total`,
   blastDuration: (p: { label: string; sec: string }) => `${p.label}: ${p.sec}s`,
+  setTimelineTitle: 'The set you just blew',
+  timelineDuration: (p: { sec: string }) => `${p.sec}s`,
+  timelineMin: (p: { sec: string }) => `min ${p.sec}s`,
+  timelineNotes: (p: { count: number; expected: number }) => `${p.count} of ${p.expected}`,
   speechHeMissing:
     'Spoken Hebrew needs a Hebrew system voice. On-screen callouts stay Hebrew.',
   sourcesTitle: 'Sources',

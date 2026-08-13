@@ -1,5 +1,6 @@
 import './style.css';
 import { getUnitDuration } from './store/sessions';
+import { isDiagnosticsEnabled, setDiagnosticsEnabled } from './store/diagnostics';
 import { applyLocale, getLocale, setLocale, type Locale } from './i18n/locale';
 import { catalog } from './i18n/t';
 import { mountCalibrate } from './ui/calibrate';
@@ -117,6 +118,16 @@ function renderHome(
   nav.appendChild(makeNavBtn(c.navHistory, () => navigate('history')));
   nav.appendChild(makeNavBtn(c.navSources, () => navigate('sources')));
   shell.appendChild(nav);
+
+  const diag = el('label', 'diag-toggle');
+  const box = el('input');
+  box.type = 'checkbox';
+  box.checked = isDiagnosticsEnabled();
+  box.addEventListener('change', () => setDiagnosticsEnabled(box.checked));
+  diag.appendChild(box);
+  diag.appendChild(document.createTextNode(c.diagnosticsToggle));
+  shell.appendChild(diag);
+  shell.appendChild(el('p', 'diagnostics-muted', c.diagnosticsHint));
 
   root.appendChild(shell);
 }

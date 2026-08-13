@@ -5,100 +5,30 @@ import { getLocale } from '../i18n/locale';
 import { blastLabel, catalog, formatIssue } from '../i18n/t';
 import { cachedVoices, loadVoices, shouldSpeakCallouts, utteranceForCallout } from '../i18n/speech';
 
-const COLORS: Record<string, string> = {
-  tekiah: '#4ade80',
-  shevarim: '#60a5fa',
-  teruah: '#fbbf24',
-  shevarim_teruah: '#a78bfa',
-  tekiah_gedolah: '#f472b6',
-  default: '#94a3b8',
-};
-
-const CANVAS_LABELS: Record<string, string> = {
-  tekiah: 'T',
-  shevarim: 'Sh',
-  teruah: 'Tr',
-  shevarim_teruah: 'Sh+Tr',
-  tekiah_gedolah: 'T↑',
-};
-
-export function renderWaveform(
-  canvas: HTMLCanvasElement,
-  samples: Float32Array,
-  analysis: DetailedAnalysisResult | null,
-): void {
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-
-  const dpr = window.devicePixelRatio || 1;
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  canvas.width = width * dpr;
-  canvas.height = height * dpr;
-  ctx.scale(dpr, dpr);
-
-  ctx.fillStyle = '#0f1628';
-  ctx.fillRect(0, 0, width, height);
-
-  const mid = height / 2;
-  const step = Math.max(1, Math.floor(samples.length / width));
-
-  ctx.strokeStyle = '#475569';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = 0; x < width; x++) {
-    const i = x * step;
-    const y = mid - samples[i] * (height * 0.42);
-    if (x === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-
-  if (!analysis) return;
-
-  for (const blast of analysis.classified) {
-    if (blast.segments.length === 0) continue;
-    const start = blast.segments[0].startSample;
-    const end = blast.segments[blast.segments.length - 1].endSample;
-    const x0 = (start / samples.length) * width;
-    const x1 = (end / samples.length) * width;
-    const color = COLORS[blast.type] ?? COLORS.default;
-    const w = Math.max(x1 - x0, 2);
-
-    ctx.fillStyle = color + '40';
-    ctx.fillRect(x0, 0, w, height);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x0, 0, w, height);
-
-    const label = CANVAS_LABELS[blast.type] ?? blast.type;
-    const count =
-      blast.type === 'shevarim' || blast.type === 'teruah'
-        ? ` (${blast.segments.length})`
-        : '';
-    ctx.fillStyle = color;
-    ctx.font = 'bold 11px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`${label}${count}`, x0 + w / 2, 14);
-  }
-
-  ctx.fillStyle = '#64748b';
-  ctx.font = '10px system-ui, sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(String(analysis.noteSegments.length), 6, height - 6);
+export interface FeedbackSections {
+  showStatus?: boolean;
+  showNotes?: boolean;
+  showDetected?: boolean;
 }
 
 export function renderAnalysisFeedback(
   container: HTMLElement,
   result: AnalysisResult,
   locale: Locale = getLocale(),
+  sections: FeedbackSections = {},
 ): void {
   const c = catalog(locale);
+  const showStatus = sections.showStatus !== false;
+  const showNotes = sections.showNotes !== false;
+  const showDetected = sections.showDetected !== false;
+
   container.innerHTML = '';
-  const status = document.createElement('div');
-  status.className = `feedback-status ${result.passed ? 'pass' : 'fail'}`;
-  status.textContent = result.passed ? c.passed : c.needsWork;
-  container.appendChild(status);
+  if (showStatus) {
+    const status = document.createElement('div');
+    status.className = `feedback-status ${result.passed ? 'pass' : 'fail'}`;
+    status.textContent = result.passed ? c.passed : c.needsWork;
+    container.appendChild(status);
+  }
 
   const disclaimer = document.createElement('p');
   disclaimer.className = 'disclaimer';
@@ -112,7 +42,11 @@ export function renderAnalysisFeedback(
     container.appendChild(ratio);
   }
 
-  if ('noteSegments' in result && Array.isArray((result as DetailedAnalysisResult).noteSegments)) {
+  if (
+    showNotes &&
+    'noteSegments' in result &&
+    Array.isArray((result as DetailedAnalysisResult).noteSegments)
+  ) {
     const notes = (result as DetailedAnalysisResult).noteSegments;
     const noteLine = document.createElement('p');
     noteLine.className = 'feedback-notes';
@@ -123,7 +57,7 @@ export function renderAnalysisFeedback(
     container.appendChild(noteLine);
   }
 
-  if (result.classified.length > 0) {
+  if (showDetected && result.classified.length > 0) {
     const detected = document.createElement('ul');
     detected.className = 'feedback-detected';
     for (const blast of result.classified) {

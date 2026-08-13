@@ -142,6 +142,187 @@ h1, h2, h3 {
   font-family: ui-monospace, monospace;
 }
 
+.set-timeline {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem 1rem 1.1rem;
+  margin: 1rem 0;
+}
+
+.set-timeline-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.set-timeline-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.timeline-verdict {
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+}
+
+.timeline-verdict.pass {
+  color: #052e16;
+  background: #4ade80;
+}
+
+.timeline-verdict.fail {
+  color: #fff;
+  background: #f87171;
+}
+
+.set-timeline-track {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  overflow-x: auto;
+}
+
+.timeline-blast {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 4.25rem;
+  padding: 0.7rem 0.6rem 0.6rem;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: 1px solid transparent;
+  color: #4ade80;
+}
+
+.timeline-blast.type-shevarim {
+  color: #60a5fa;
+  min-width: 5.5rem;
+}
+.timeline-blast.type-teruah {
+  color: #fbbf24;
+  min-width: 7.5rem;
+}
+.timeline-blast.type-shevarim_teruah { color: #a78bfa; }
+.timeline-blast.type-tekiah_gedolah { color: #f472b6; }
+
+.timeline-blast.status-error {
+  border-color: #f87171;
+  box-shadow: inset 0 0 0 1px #f8717144;
+}
+
+.timeline-blast.status-warn {
+  border-color: #fbbf24aa;
+}
+
+.timeline-name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-height: 1.35rem;
+}
+
+.timeline-abbrev {
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  color: inherit;
+}
+
+.timeline-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-bar {
+  height: 12px;
+  border-radius: 999px;
+  background: #0f162866;
+  overflow: hidden;
+  display: flex;
+}
+
+.timeline-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  transform-origin: left center;
+  animation: timeline-fill 0.45s ease-out;
+}
+
+[dir='rtl'] .timeline-bar-fill {
+  transform-origin: right center;
+}
+
+.timeline-notes {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 2.4rem;
+}
+
+.timeline-note {
+  flex: 1 1 0;
+  min-width: 5px;
+  border-radius: 3px 3px 2px 2px;
+  background: currentColor;
+  transform-origin: center bottom;
+  animation: timeline-rise 0.4s ease-out;
+}
+
+.timeline-note.ghost {
+  background: transparent;
+  border: 1px dashed currentColor;
+  opacity: 0.45;
+  animation: none;
+}
+
+.timeline-note.short {
+  background: #fbbf24;
+}
+
+.timeline-note.long {
+  background: #f87171;
+}
+
+.timeline-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+.timeline-duration {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@keyframes timeline-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes timeline-rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-bar-fill,
+  .timeline-note {
+    animation: none;
+  }
+}
+
 .waveform-legend {
   display: flex;
   gap: 1rem;
@@ -322,6 +503,49 @@ h1, h2, h3 {
 
 .session-list li.fail {
   border-inline-start: 3px solid var(--fail);
+}
+
+.diag-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.diagnostics-muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0.35rem 0 0;
+}
+
+.diagnostics-panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px dashed var(--surface2);
+}
+
+.diagnostics-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.diagnostics-peaks,
+.diagnostics-onsets {
+  margin: 0.35rem 0;
+  font-size: 0.85rem;
+  font-family: ui-monospace, monospace;
+  color: var(--muted);
+}
+
+.diagnostics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 
 .issue-detail {
