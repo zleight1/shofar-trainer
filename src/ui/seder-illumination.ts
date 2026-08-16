@@ -9,11 +9,11 @@ const NS_W = 280;
 const CX = 140;
 const TOP = 18;
 const BOTTOM = 16;
-const BAND_H = 7.35;
-const GEDOLAH_H = 13.2;
-const BAND_GAP = 0.62;
-const ROUND_GAP = 3.1;
-const SECTION_GAP = 9.2;
+const BAND_H = 8.05;
+const GEDOLAH_H = 14.2;
+const BAND_GAP = 0.9;
+const ROUND_GAP = 3.4;
+const SECTION_GAP = 9.6;
 const MIN_SPAN = 34;
 const MAX_SPAN = 112;
 
@@ -54,7 +54,9 @@ export function illuminationSvg(kols: SessionKol[], copy: IlluminationCopy): str
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${NS_W} ${n(height)}" role="img" aria-label="${xml(copy.description)}">`,
     `<title>${xml(copy.title)}</title>`,
     `<desc>${xml(copy.description)}</desc>`,
+    `<defs><clipPath id="illumination-clip"><rect x="6" y="6" width="${NS_W - 12}" height="${n(height - 12)}"/></clipPath></defs>`,
     `<rect class="parchment" width="${NS_W}" height="${n(height)}" fill="#f4ead6"/>`,
+    `<g clip-path="url(#illumination-clip)">`,
     textileGrain(height),
     borderRow(10, '#d6c4a3'),
     `<line class="spine" x1="${CX}" x2="${CX}" y1="${TOP - 4}" y2="${n(height - BOTTOM + 4)}" stroke="#c9b089" stroke-width="1.15"/>`,
@@ -77,6 +79,7 @@ export function illuminationSvg(kols: SessionKol[], copy: IlluminationCopy): str
 
   parts.push(
     borderRow(height - 12, '#d6c4a3'),
+    '</g>',
     `<rect fill="none" stroke="#e4d4b4" stroke-width="1.2" x="6" y="6" width="${NS_W - 12}" height="${n(height - 12)}"/>`,
     '</svg>',
   );
@@ -366,7 +369,15 @@ function sawtooth(
 
 function separatorStrip(y: number, h: number, band: PlacedBand): string {
   const mid = y + h / 2;
-  const span = MAX_SPAN * 0.72;
+  const span = MAX_SPAN * 0.78;
+  if (h < 2) {
+    return [
+      `<g class="separator" data-after="${band.kol.index - 1}">`,
+      `<line x1="${n(CX - span)}" x2="${n(CX + span)}" y1="${n(mid)}" y2="${n(mid)}" stroke="${band.wash}" stroke-width="${n(Math.max(0.4, h * 0.72))}" opacity="0.8"/>`,
+      `<path d="${squarePath(CX, mid, 0.9)}" fill="#f8f1e3" stroke="#c9b089" stroke-width="0.35"/>`,
+      '</g>',
+    ].join('');
+  }
   return [
     `<g class="separator" data-after="${band.kol.index - 1}">`,
     `<path d="${slab(y - 0.2, h + 0.4, span)}" fill="${band.wash}" opacity="0.55"/>`,
