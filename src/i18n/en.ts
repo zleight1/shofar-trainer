@@ -2,10 +2,11 @@ export const en = {
   appTitle: 'Shofar Trainer',
   tagline: 'Makrei-style guided practice with live timing feedback',
   lastUnit: (p: { ms: number }) => `Last unit: ${p.ms} ms`,
-  navPractice: 'Practice (guided)',
-  navCalibrate: 'Calibrate manually',
+  navPractice: 'Practice',
+  navCalibrate: 'Calibrate',
   navHistory: 'History',
   navSources: 'Sources',
+  navMain: 'Main',
   diagnosticsToggle: 'Diagnostics',
   diagnosticsHint:
     'After each set, show echo compensation and download a WAV of the blasts. Compensation still runs when this is off.',

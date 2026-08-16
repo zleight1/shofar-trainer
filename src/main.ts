@@ -1,39 +1,77 @@
 import './style.css';
-import { getUnitDuration } from './store/sessions';
-import { isDiagnosticsEnabled, setDiagnosticsEnabled } from './store/diagnostics';
 import { applyLocale, getLocale, setLocale, type Locale } from './i18n/locale';
 import { catalog } from './i18n/t';
-import { unlockCallouts } from './audio/callout-player';
 import { mountCalibrate } from './ui/calibrate';
-import { button, el } from './ui/components';
-import { renderAppHeader, renderDisclaimer } from './ui/chrome';
+import { el } from './ui/components';
+import {
+  renderAppHeader,
+  renderTabBar,
+  titleForView,
+  type AppTab,
+} from './ui/chrome';
 import { mountHistory } from './ui/history';
 import { mountPractice } from './ui/practice';
 import { mountSources } from './ui/sources';
 
-type View = 'home' | 'calibrate' | 'practice' | 'history' | 'sources';
+type View = AppTab;
 
 function mountApp(): void {
   const app = document.querySelector('#app')!;
-  let view: View = 'home';
+  let view: View = 'practice';
   let unmount: (() => void) | null = null;
   let viewBusy = false;
+  let sessionLocked = false;
   let refreshLocale: (() => void) | null = null;
+
+  const shell = el('div', 'app-shell');
+  const topbar = el('header', 'app-topbar');
+  const content = el('main', 'app-content');
+  const tabbar = el('nav', 'app-tabbar');
+  shell.append(topbar, content, tabbar);
+  app.appendChild(shell);
 
   function syncDocument(): void {
     const locale = getLocale();
     applyLocale(locale, catalog(locale).appTitle);
   }
 
+  function syncShellState(): void {
+    shell.classList.toggle('is-busy', viewBusy);
+    shell.classList.toggle('session-locked', sessionLocked);
+  }
+
+  function onLocale(next: Locale): void {
+    changeLocale(next);
+  }
+
+  function renderChrome(): void {
+    const locale = getLocale();
+    const c = catalog(locale);
+    renderAppHeader(topbar, {
+      title: titleForView(view, c),
+      locale,
+      onLocale,
+      localeDisabled: viewBusy,
+    });
+    renderTabBar(tabbar, {
+      active: view,
+      locale,
+      disabled: viewBusy || sessionLocked,
+      onNavigate: navigate,
+    });
+    syncShellState();
+  }
+
   function changeLocale(next: Locale): void {
     if (viewBusy) return;
     setLocale(next);
     syncDocument();
+    renderChrome();
     if (refreshLocale) {
       refreshLocale();
       return;
     }
-    render();
+    mountView();
   }
 
   function navigate(next: View): void {
@@ -41,8 +79,9 @@ function mountApp(): void {
     unmount = null;
     refreshLocale = null;
     viewBusy = false;
+    sessionLocked = false;
     view = next;
-    render();
+    mountView();
   }
 
   function bindUnmount(fn: () => void): () => void {
@@ -52,101 +91,56 @@ function mountApp(): void {
     };
   }
 
-  function render(): void {
-    app.innerHTML = '';
+  function mountView(): void {
     unmount?.();
+    unmount = null;
     refreshLocale = null;
+    content.replaceChildren();
     syncDocument();
-    const onLocale = (next: Locale) => changeLocale(next);
+    renderChrome();
+
     const onBusy = (busy: boolean) => {
       viewBusy = busy;
+      renderChrome();
+    };
+    const onSessionLock = (locked: boolean) => {
+      sessionLocked = locked;
+      syncShellState();
     };
     const onRefreshRegister = (fn: () => void) => {
       refreshLocale = fn;
     };
 
-    if (view === 'home') {
-      renderHome(app as HTMLElement, navigate, onLocale);
-    } else if (view === 'calibrate') {
+    if (view === 'practice') {
       unmount = bindUnmount(
-        mountCalibrate(app as HTMLElement, {
-          onDone: () => navigate('home'),
+        mountPractice(content, {
+          onBack: () => navigate('practice'),
           onLocale,
           onBusy,
+          onSessionLock,
           onRefreshRegister,
         }),
       );
-    } else if (view === 'practice') {
+    } else if (view === 'calibrate') {
       unmount = bindUnmount(
-        mountPractice(app as HTMLElement, {
-          onBack: () => navigate('home'),
+        mountCalibrate(content, {
+          onDone: () => navigate('practice'),
           onLocale,
           onBusy,
           onRefreshRegister,
         }),
       );
     } else if (view === 'history') {
-      unmount = mountHistory(app as HTMLElement, { onBack: () => navigate('home'), onLocale });
+      unmount = mountHistory(content, { onBack: () => navigate('practice'), onLocale });
     } else if (view === 'sources') {
-      unmount = mountSources(app as HTMLElement, { onBack: () => navigate('home'), onLocale });
+      unmount = mountSources(content, { onBack: () => navigate('practice'), onLocale });
+    } else {
+      const _exhaustive: never = view;
+      return _exhaustive;
     }
   }
 
-  render();
-}
-
-function renderHome(
-  root: HTMLElement,
-  navigate: (v: View) => void,
-  onLocale: (next: Locale) => void,
-): void {
-  const locale = getLocale();
-  const c = catalog(locale);
-  const unit = getUnitDuration();
-
-  const shell = el('div', 'home');
-  renderAppHeader(shell, { title: c.appTitle, locale, onLocale });
-  shell.appendChild(el('p', 'tagline', c.tagline));
-  renderDisclaimer(shell, locale);
-
-  if (unit) {
-    shell.appendChild(el('p', 'unit-badge', c.lastUnit({ ms: Math.round(unit * 1000) })));
-  }
-
-  const nav = el('nav', 'home-nav');
-  nav.appendChild(
-    makeNavBtn(c.navPractice, () => {
-      unlockCallouts();
-      navigate('practice');
-    }),
-  );
-  nav.appendChild(
-    makeNavBtn(c.navCalibrate, () => {
-      unlockCallouts();
-      navigate('calibrate');
-    }),
-  );
-  nav.appendChild(makeNavBtn(c.navHistory, () => navigate('history')));
-  nav.appendChild(makeNavBtn(c.navSources, () => navigate('sources')));
-  shell.appendChild(nav);
-
-  const diag = el('label', 'diag-toggle');
-  const box = el('input');
-  box.type = 'checkbox';
-  box.checked = isDiagnosticsEnabled();
-  box.addEventListener('change', () => setDiagnosticsEnabled(box.checked));
-  diag.appendChild(box);
-  diag.appendChild(document.createTextNode(c.diagnosticsToggle));
-  shell.appendChild(diag);
-  shell.appendChild(el('p', 'diagnostics-muted', c.diagnosticsHint));
-
-  root.appendChild(shell);
-}
-
-function makeNavBtn(label: string, onClick: () => void): HTMLButtonElement {
-  const b = button(label, 'btn nav-btn');
-  b.addEventListener('click', onClick);
-  return b;
+  mountView();
 }
 
 mountApp();

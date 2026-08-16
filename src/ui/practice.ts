@@ -26,7 +26,7 @@ import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { clipIdForBlast, setCalloutGate, speakCallout, unlockCallouts } from '../audio/callout-player';
 import { button, el, renderAnalysisFeedback } from './components';
-import { renderAppHeader, renderDisclaimer } from './chrome';
+import { renderDiagnosticsToggle, renderDisclaimer } from './chrome';
 import { attachLiveWaveform } from './live-waveform';
 import { BLAST_ABBREV, renderSetTimeline } from './set-timeline';
 import { renderDiagnosticsPanel, type BlastAudioClip } from './diagnostics-panel';
@@ -37,6 +37,7 @@ export interface PracticeMountOptions {
   onBack: () => void;
   onLocale: (next: Locale) => void;
   onBusy?: (busy: boolean) => void;
+  onSessionLock?: (locked: boolean) => void;
   onRefreshRegister?: (refresh: () => void) => void;
 }
 
@@ -72,10 +73,6 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
-
-  function localeBusy(): boolean {
-    return running || (phase !== 'idle' && phase !== 'set_review' && phase !== 'done');
-  }
 
   function detachLive(): void {
     stopLive?.();
@@ -160,13 +157,6 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const locale = getLocale();
     const c = catalog(locale);
 
-    renderAppHeader(container, {
-      title: c.practiceTitle,
-      locale,
-      onLocale: options.onLocale,
-      localeDisabled: localeBusy() && phase !== 'set_review' && phase !== 'done' && phase !== 'idle',
-    });
-
     if (phase === 'idle') {
       renderIdle();
       return;
@@ -193,6 +183,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     container.appendChild(setCard);
 
     if (phase !== 'set_review') {
+      const stage = el('div', 'live-stage');
       const callout = el('div', running ? 'callout recording' : 'callout preparing');
       if (!step) {
         callout.textContent = '…';
@@ -201,11 +192,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       } else {
         callout.textContent = visibleCallout(step, locale);
       }
-      container.appendChild(callout);
+      stage.appendChild(callout);
+
+      const meta = el('div', 'live-meta');
       if (step?.breath === 'none') {
-        container.appendChild(el('p', 'breath-cue none', c.breathNone));
+        meta.appendChild(el('p', 'breath-cue none', c.breathNone));
       } else if (step?.breath === 'between') {
-        container.appendChild(el('p', 'breath-cue between', c.breathBetween));
+        meta.appendChild(el('p', 'breath-cue between', c.breathBetween));
       }
 
       const timingEl = el('div', 'live-timing');
@@ -213,11 +206,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
         timingEl.textContent = formatLiveLine(currentTiming, locale);
         timingEl.className = `live-timing status-${currentTiming.status}`;
       }
-      container.appendChild(timingEl);
+      meta.appendChild(timingEl);
+      stage.appendChild(meta);
 
       const canvas = el('canvas', 'waveform live');
       canvas.height = 220;
-      container.appendChild(canvas);
+      stage.appendChild(canvas);
+      container.appendChild(stage);
       if (running && session.isOpen()) {
         stopLive = attachLiveWaveform(canvas, () => session.getAnalyser(), {
           getTiming: () => currentTiming,
@@ -282,28 +277,32 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   function renderIdle(): void {
     const locale = getLocale();
     const c = catalog(locale);
+    const unit = getUnitDuration();
+    const hero = el('div', 'hero');
+    hero.appendChild(el('p', 'eyebrow', c.appTitle));
+    hero.appendChild(el('p', 'tagline', c.tagline));
+    container.appendChild(hero);
     renderDisclaimer(container, locale);
-    container.appendChild(el('p', 'instructions', c.practiceIntro));
-    if (isDiagnosticsEnabled()) {
-      container.appendChild(el('p', 'diagnostics-muted', c.diagnosticsHint));
+    if (unit) {
+      container.appendChild(el('p', 'unit-badge', c.lastUnit({ ms: Math.round(unit * 1000) })));
     }
-    const startBtn = button(c.startGuided, 'btn primary');
+    container.appendChild(el('p', 'instructions', c.practiceIntro));
+    const startBtn = button(c.startGuided, 'btn primary btn-block');
     startBtn.addEventListener('click', () => {
       unlockCallouts();
       void startSession();
     });
     container.appendChild(startBtn);
-    const backBtn = button(c.back, 'btn secondary');
-    backBtn.addEventListener('click', options.onBack);
-    container.appendChild(backBtn);
+    renderDiagnosticsToggle(container, locale);
   }
 
   function renderDone(): void {
     const locale = getLocale();
     const c = catalog(locale);
+    options.onSessionLock?.(false);
     renderDisclaimer(container, locale);
-    container.appendChild(el('p', '', c.sessionComplete));
-    const backBtn = button(c.backHome, 'btn primary');
+    container.appendChild(el('p', 'session-complete', c.sessionComplete));
+    const backBtn = button(c.backHome, 'btn primary btn-block');
     backBtn.addEventListener('click', options.onBack);
     container.appendChild(backBtn);
   }
@@ -352,8 +351,17 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     setAudio = [];
     middleDurationSec = 0;
     phase = 'calibration';
+    options.onSessionLock?.(true);
     options.onBusy?.(true);
-    await session.openMic();
+    try {
+      await session.openMic();
+    } catch {
+      options.onSessionLock?.(false);
+      options.onBusy?.(false);
+      phase = 'idle';
+      render();
+      return;
+    }
     setCalloutGate({
       context: session.getContext(),
       pause: () => session.muteForPlayback(),
@@ -669,6 +677,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     detachLive();
     setCalloutGate({});
     session.close();
+    options.onSessionLock?.(false);
     options.onBusy?.(false);
     container.remove();
   };
