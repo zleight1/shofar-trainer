@@ -67,6 +67,8 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let mounted = true;
   let setGeneration = 0;
   let cancelCurrentBlast: (() => void) | null = null;
+  let setLoopActive = false;
+  let launchToken = 0;
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
@@ -250,6 +252,8 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     }
 
     const controls = el('div', 'controls');
+    const redoBtn = button(c.redoSet, 'btn secondary');
+    redoBtn.addEventListener('click', () => void requestRedoSet());
     if (phase === 'set_review') {
       const nextBtn = button(
         setIndex >= SET_GROUPS.length - 1 ? c.finish : c.nextSet,
@@ -257,12 +261,8 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       );
       nextBtn.addEventListener('click', () => void advanceAfterSet());
       controls.appendChild(nextBtn);
-      const redoBtn = button(c.redoSet, 'btn secondary');
-      redoBtn.addEventListener('click', () => void requestRedoSet());
       controls.appendChild(redoBtn);
     } else if (phase === 'set' || phase === 'calibration') {
-      const redoBtn = button(c.redoSet, 'btn secondary');
-      redoBtn.addEventListener('click', () => void requestRedoSet());
       controls.appendChild(redoBtn);
       if (!running) {
         const stopBtn = button(c.stopSession, 'btn secondary');
@@ -386,8 +386,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     }
     render();
     if (!fromReview) return;
+    const token = ++launchToken;
     await delay(400);
-    if (abortSession || !mounted) return;
+    if (abortSession || !mounted || token !== launchToken) return;
     await runCurrentSet();
   }
 
@@ -442,6 +443,16 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   }
 
   async function runCurrentSet(): Promise<void> {
+    if (setLoopActive) return;
+    setLoopActive = true;
+    try {
+      await runCurrentSetLoop();
+    } finally {
+      setLoopActive = false;
+    }
+  }
+
+  async function runCurrentSetLoop(): Promise<void> {
     while (!abortSession && mounted) {
       const runId = setGeneration;
       const set = SET_GROUPS[setIndex];
@@ -634,7 +645,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     lastAnalysis = null;
     options.onBusy?.(true);
     render();
+    const token = ++launchToken;
     await delay(600);
+    if (abortSession || !mounted || token !== launchToken) return;
     await runCurrentSet();
   }
 

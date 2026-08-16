@@ -9,10 +9,6 @@ import {
   type AutoStopState,
 } from './auto-stop';
 
-function resolved(partial: AutoStopOptions = {}): AutoStopOptions {
-  return partial;
-}
-
 function drive(
   peaks: Array<{ at: number; peak: number }>,
   options: AutoStopOptions,
@@ -20,7 +16,7 @@ function drive(
   let state: AutoStopState = createAutoStopState();
   let last: AutoStopAdvance | undefined;
   for (const sample of peaks) {
-    last = advanceAutoStop(state, sample.at, 0, sample.peak, resolved(options));
+    last = advanceAutoStop(state, sample.at, 0, sample.peak, options);
     state = last.state;
     if (last.done) return last;
   }
