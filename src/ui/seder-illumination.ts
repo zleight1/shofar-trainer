@@ -4,6 +4,16 @@ import { catalog } from '../i18n/t';
 import { el, button } from './components';
 import type { PracticeSection, SessionKol } from './seder-illumination-model';
 import { passedSetCount, type SetTake } from './seder-illumination-model';
+import {
+  ILLUMINATION_PNG_NAME,
+  KABBALAH_ART_URL,
+  downloadBlob,
+  illuminationSharePayload,
+  isShareAbort,
+  nativeShareAvailable,
+  rasterizeSvgElement,
+  sharePng,
+} from './seder-illumination-share';
 
 const NS_W = 280;
 const CX = 140;
@@ -16,6 +26,7 @@ const ROUND_GAP = 3.4;
 const SECTION_GAP = 9.6;
 const MIN_SPAN = 34;
 const MAX_SPAN = 112;
+const CREDIT_H = 36;
 
 const SECTION_YARNS: Record<PracticeSection, readonly string[]> = {
   sitting: ['#c7d2fe', '#e9d5ff', '#fbcfe8', '#bae6fd', '#ddd6fe', '#fecaca', '#a5f3fc', '#fde68a'],
@@ -32,6 +43,9 @@ export function sectionSwatch(section: PracticeSection): string {
 export interface IlluminationCopy {
   title: string;
   description: string;
+  creditLine: string;
+  creditUrlLabel: string;
+  dir: 'ltr' | 'rtl';
 }
 
 interface PlacedBand {
@@ -48,18 +62,20 @@ interface PlacedBand {
 
 export function illuminationSvg(kols: SessionKol[], copy: IlluminationCopy): string {
   const placed = layoutBands(kols);
-  const height = placed.length === 0 ? TOP + BOTTOM + 40 : placed[placed.length - 1].y + placed[placed.length - 1].h + BOTTOM;
+  const artH =
+    placed.length === 0 ? TOP + BOTTOM + 40 : placed[placed.length - 1].y + placed[placed.length - 1].h + BOTTOM;
+  const height = artH + CREDIT_H;
   const parts: string[] = [];
   parts.push(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${NS_W} ${n(height)}" role="img" aria-label="${xml(copy.description)}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${NS_W}" height="${n(height)}" viewBox="0 0 ${NS_W} ${n(height)}" role="img" aria-label="${xml(copy.description)}">`,
     `<title>${xml(copy.title)}</title>`,
     `<desc>${xml(copy.description)}</desc>`,
-    `<defs><clipPath id="illumination-clip"><rect x="6" y="6" width="${NS_W - 12}" height="${n(height - 12)}"/></clipPath></defs>`,
+    `<defs><clipPath id="illumination-clip"><rect x="6" y="6" width="${NS_W - 12}" height="${n(artH - 12)}"/></clipPath></defs>`,
     `<rect class="parchment" width="${NS_W}" height="${n(height)}" fill="#f4ead6"/>`,
     `<g clip-path="url(#illumination-clip)">`,
-    textileGrain(height),
+    textileGrain(artH),
     borderRow(10, '#d6c4a3'),
-    `<line class="spine" x1="${CX}" x2="${CX}" y1="${TOP - 4}" y2="${n(height - BOTTOM + 4)}" stroke="#c9b089" stroke-width="1.15"/>`,
+    `<line class="spine" x1="${CX}" x2="${CX}" y1="${TOP - 4}" y2="${n(artH - BOTTOM + 4)}" stroke="#c9b089" stroke-width="1.15"/>`,
   );
 
   for (let i = 0; i < placed.length; i++) {
@@ -78,9 +94,10 @@ export function illuminationSvg(kols: SessionKol[], copy: IlluminationCopy): str
   }
 
   parts.push(
-    borderRow(height - 12, '#d6c4a3'),
+    borderRow(artH - 12, '#d6c4a3'),
     '</g>',
-    `<rect fill="none" stroke="#e4d4b4" stroke-width="1.2" x="6" y="6" width="${NS_W - 12}" height="${n(height - 12)}"/>`,
+    `<rect fill="none" stroke="#e4d4b4" stroke-width="1.2" x="6" y="6" width="${NS_W - 12}" height="${n(artH - 12)}"/>`,
+    creditFooter(artH, copy),
     '</svg>',
   );
   return parts.join('');
@@ -103,6 +120,9 @@ export function renderSederIllumination(
   mat.innerHTML = illuminationSvg(kols, {
     title: c.illuminationTitle,
     description: c.illuminationAria({ kolos: kols.length, passed: stats.passed, total: stats.total }),
+    creditLine: c.illuminationCreditLine,
+    creditUrlLabel: c.illuminationCreditUrlLabel,
+    dir: dirForLocale(locale),
   });
   frame.appendChild(mat);
   wrap.appendChild(frame);
@@ -121,18 +141,94 @@ export function renderSederIllumination(
   wrap.appendChild(
     el('p', 'illumination-stats', c.illuminationStats({ passed: stats.passed, total: stats.total })),
   );
+  wrap.appendChild(renderCredit(c.illuminationCredit, c.illuminationCreditLink));
 
+  const svg = mat.querySelector('svg');
   const actions = el('div', 'illumination-actions');
+  const shareBtn = nativeShareAvailable() ? button(c.illuminationShare, 'btn primary') : null;
   const saveBtn = button(c.illuminationSave, 'btn secondary');
-  saveBtn.addEventListener('click', () => {
-    const svg = mat.querySelector('svg');
-    if (svg) downloadSvg(svg, 'shofar-100.svg');
-  });
+  if (shareBtn) actions.appendChild(shareBtn);
   actions.appendChild(saveBtn);
   wrap.appendChild(actions);
 
+  if (svg instanceof SVGSVGElement) {
+    attachPngExport(svg, saveBtn, shareBtn, illuminationSharePayload(c));
+  }
+
   parent.appendChild(wrap);
   return wrap;
+}
+
+function renderCredit(text: string, linkLabel: string): HTMLElement {
+  const credit = el('p', 'illumination-credit');
+  credit.appendChild(document.createTextNode(`${text} `));
+  const link = document.createElement('a');
+  link.href = KABBALAH_ART_URL;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = linkLabel;
+  credit.appendChild(link);
+  return credit;
+}
+
+function attachPngExport(
+  svg: SVGSVGElement,
+  saveBtn: HTMLButtonElement,
+  shareBtn: HTMLButtonElement | null,
+  payload: ReturnType<typeof illuminationSharePayload>,
+): void {
+  let png: Blob | null = null;
+  saveBtn.disabled = true;
+  if (shareBtn) shareBtn.disabled = true;
+
+  void rasterizeSvgElement(svg)
+    .then((blob) => {
+      png = blob;
+      saveBtn.disabled = false;
+      if (shareBtn) shareBtn.disabled = false;
+    })
+    .catch(() => {
+      saveBtn.disabled = false;
+    });
+
+  saveBtn.addEventListener('click', () => {
+    if (png) downloadBlob(png, ILLUMINATION_PNG_NAME);
+    else downloadSvg(svg, 'shofar-100.svg');
+  });
+
+  shareBtn?.addEventListener('click', () => {
+    const blob = png;
+    if (!blob) return;
+    void sharePng(blob, payload).catch((err) => {
+      if (isShareAbort(err)) return;
+      downloadBlob(blob, ILLUMINATION_PNG_NAME);
+    });
+  });
+}
+
+function creditFooter(artH: number, copy: IlluminationCopy): string {
+  const y1 = artH + 14;
+  const y2 = artH + 26;
+  const font = "system-ui, 'Segoe UI', 'Helvetica Neue', sans-serif";
+  return [
+    `<g class="credit" direction="${copy.dir}">`,
+    `<text x="${CX}" y="${n(y1)}" text-anchor="middle" fill="#6b5428" font-size="6.4" font-family="${font}">${xml(copy.creditLine)}</text>`,
+    `<text x="${CX}" y="${n(y2)}" text-anchor="middle" fill="#8a7348" font-size="5.5" font-family="${font}">${xml(copy.creditUrlLabel)}</text>`,
+    '</g>',
+  ].join('');
+}
+
+function dirForLocale(locale: Locale): 'ltr' | 'rtl' {
+  switch (locale) {
+    case 'he':
+      return 'rtl';
+    case 'en':
+      return 'ltr';
+    default: {
+      const _exhaustive: never = locale;
+      return _exhaustive;
+    }
+  }
 }
 
 function legendSections(): PracticeSection[] {
