@@ -2,15 +2,15 @@ import { SOURCES } from '../halacha/sources';
 import { catalog } from '../i18n/t';
 import type { Locale } from '../i18n/locale';
 import { getLocale, htmlAttrsForLocale } from '../i18n/locale';
-import { renderAppHeader, renderDisclaimer } from './chrome';
-import { button, el } from './components';
+import { renderDisclaimer } from './chrome';
+import { el } from './components';
 
 export interface SourcesMountOptions {
   onBack: () => void;
   onLocale: (next: Locale) => void;
 }
 
-export function mountSources(root: HTMLElement, options: SourcesMountOptions): () => void {
+export function mountSources(root: HTMLElement, _options: SourcesMountOptions): () => void {
   const container = el('div', 'sources-view');
   root.appendChild(container);
 
@@ -18,11 +18,6 @@ export function mountSources(root: HTMLElement, options: SourcesMountOptions): (
     container.innerHTML = '';
     const locale = getLocale();
     const c = catalog(locale);
-    renderAppHeader(container, {
-      title: c.sourcesTitle,
-      locale,
-      onLocale: options.onLocale,
-    });
     renderDisclaimer(container, locale);
     container.appendChild(el('p', 'instructions', c.sourcesIntro));
     container.appendChild(el('p', 'minhag-note', c.minhagNote));
@@ -57,10 +52,6 @@ export function mountSources(root: HTMLElement, options: SourcesMountOptions): (
       card.appendChild(links);
       container.appendChild(card);
     }
-
-    const back = button(c.back, 'btn secondary');
-    back.addEventListener('click', options.onBack);
-    container.appendChild(back);
   }
 
   render();

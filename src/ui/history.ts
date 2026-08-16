@@ -2,7 +2,7 @@ import { clearSessions, formatSessionSummary, loadSessions } from '../store/sess
 import { catalog } from '../i18n/t';
 import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
-import { renderAppHeader, renderDisclaimer } from './chrome';
+import { renderDisclaimer } from './chrome';
 import { button, el } from './components';
 
 export interface HistoryMountOptions {
@@ -10,7 +10,7 @@ export interface HistoryMountOptions {
   onLocale: (next: Locale) => void;
 }
 
-export function mountHistory(root: HTMLElement, options: HistoryMountOptions): () => void {
+export function mountHistory(root: HTMLElement, _options: HistoryMountOptions): () => void {
   const container = el('div', 'history-view');
   root.appendChild(container);
 
@@ -18,42 +18,36 @@ export function mountHistory(root: HTMLElement, options: HistoryMountOptions): (
     container.innerHTML = '';
     const locale = getLocale();
     const c = catalog(locale);
-    renderAppHeader(container, {
-      title: c.historyTitle,
-      locale,
-      onLocale: options.onLocale,
-    });
     renderDisclaimer(container, locale);
 
     const sessions = loadSessions();
     if (sessions.length === 0) {
       container.appendChild(el('p', 'empty', c.historyEmpty));
-    } else {
-      const list = el('ul', 'session-list');
-      for (const s of sessions.slice(0, 50)) {
-        const li = el('li', s.passed ? 'pass' : 'fail');
-        li.textContent = formatSessionSummary(s, locale);
-        list.appendChild(li);
-      }
-      container.appendChild(list);
-
-      const stats = el('div', 'stats');
-      const passed = sessions.filter((s) => s.passed).length;
-      stats.textContent = c.historyStats({ passed, total: sessions.length });
-      container.appendChild(stats);
+      return;
     }
+
+    const list = el('ul', 'session-list');
+    for (const s of sessions.slice(0, 50)) {
+      const li = el('li', s.passed ? 'pass' : 'fail');
+      li.textContent = formatSessionSummary(s, locale);
+      list.appendChild(li);
+    }
+    container.appendChild(list);
+
+    const stats = el('div', 'stats');
+    const passed = sessions.filter((s) => s.passed).length;
+    stats.textContent = c.historyStats({ passed, total: sessions.length });
+    container.appendChild(stats);
 
     const controls = el('div', 'controls');
     const clearBtn = button(c.clearHistory, 'btn secondary');
-    const backBtn = button(c.back, 'btn');
     clearBtn.addEventListener('click', () => {
       showConfirm(container, c.confirmClear, c.confirmYes, c.confirmNo, () => {
         clearSessions();
         render();
       });
     });
-    backBtn.addEventListener('click', options.onBack);
-    controls.append(backBtn, clearBtn);
+    controls.append(clearBtn);
     container.appendChild(controls);
   }
 

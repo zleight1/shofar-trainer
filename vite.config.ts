@@ -13,9 +13,10 @@ export default defineConfig({
         name: 'Shofar Trainer',
         short_name: 'Shofar',
         description: 'Halachic shofar practice coach with audio timing analysis',
-        theme_color: '#1a2744',
-        background_color: '#0f1628',
+        theme_color: '#14110e',
+        background_color: '#14110e',
         display: 'standalone',
+        orientation: 'any',
         start_url: '/',
         icons: [
           {

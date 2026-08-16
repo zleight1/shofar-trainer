@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatIssue } from './t';
+import { catalog, formatIssue } from './t';
 
 describe('formatIssue', () => {
   it('uses catalog when params are present', () => {
@@ -26,5 +26,19 @@ describe('formatIssue', () => {
     );
     expect(text).toBe('Expected at least 9 teruah blasts, detected 3');
     expect(text).not.toContain('detected 0');
+  });
+});
+
+describe('catalog', () => {
+  it('includes Redo set in both catalogs', () => {
+    expect(catalog('en').redoSet.length).toBeGreaterThan(0);
+    expect(catalog('he').redoSet.length).toBeGreaterThan(0);
+  });
+
+  it('includes live-session copy in both catalogs', () => {
+    expect(catalog('en').liveSessionToggle.length).toBeGreaterThan(0);
+    expect(catalog('he').liveSessionToggle.length).toBeGreaterThan(0);
+    expect(catalog('en').previousSet.length).toBeGreaterThan(0);
+    expect(catalog('he').previousSet.length).toBeGreaterThan(0);
   });
 });
