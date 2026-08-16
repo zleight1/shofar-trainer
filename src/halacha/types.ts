@@ -84,3 +84,4 @@ export const DEFAULT_HALACHA_CONFIG: HalachaConfig = {
 
 export const CALIBRATION_STORAGE_KEY = 'shofar-trainer-unit-sec';
 export const SESSIONS_STORAGE_KEY = 'shofar-trainer-sessions';
+export const ILLUMINATIONS_STORAGE_KEY = 'shofar-trainer-illuminations';

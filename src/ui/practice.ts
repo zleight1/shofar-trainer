@@ -25,6 +25,7 @@ import {
 } from '../audio/auto-stop';
 import { SessionRecorder } from '../audio/session-recorder';
 import { getUnitDuration, saveSession, setUnitDuration } from '../store/sessions';
+import { saveIllumination } from '../store/illuminations';
 import { isDiagnosticsEnabled } from '../store/diagnostics';
 import { isLiveSessionEnabled, setLiveSessionEnabled } from '../store/live-session';
 import { calloutForType, catalog, formatLiveLine, patternLabel, sectionLabel } from '../i18n/t';
@@ -38,7 +39,7 @@ import { BLAST_ABBREV, renderSetTimeline } from './set-timeline';
 import { renderDiagnosticsPanel, type BlastAudioClip } from './diagnostics-panel';
 import { shouldCommitBlast } from './practice-run';
 import type { DetailedAnalysisResult } from '../audio/analyze';
-import { buildSessionKols, upsertSetTake, type SetTake } from './seder-illumination-model';
+import { illuminationRecordFromTakes, upsertSetTake, type SetTake } from './seder-illumination-model';
 import { renderSederIllumination } from './seder-illumination';
 
 export interface PracticeMountOptions {
@@ -334,8 +335,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     options.onSessionLock?.(false);
     renderDisclaimer(container, locale);
     container.appendChild(el('p', 'session-complete-kicker', c.sessionComplete));
-    const kols = buildSessionKols(sessionTakes);
-    renderSederIllumination(container, sessionTakes, kols, locale);
+    renderSederIllumination(container, { ...illuminationRecordFromTakes(sessionTakes), clipId: 'live' }, locale);
     const backBtn = button(c.backHome, 'btn primary');
     backBtn.addEventListener('click', options.onBack);
     container.appendChild(backBtn);
@@ -688,9 +688,20 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     return 0;
   }
 
+  function persistCompletedIllumination(): void {
+    const view = illuminationRecordFromTakes(sessionTakes);
+    saveIllumination({
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      unitDurationSec: unitSec,
+      ...view,
+    });
+  }
+
   async function advanceAfterSet(): Promise<void> {
     if (!beginLeaveReview()) return;
     if (setIndex >= SET_GROUPS.length - 1) {
+      persistCompletedIllumination();
       phase = 'done';
       leavingReview = false;
       render();
