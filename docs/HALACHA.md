@@ -46,6 +46,8 @@ Kol count: Tashrat = 4 (also when shevarim-teruah is one take), Tashat = 3, Tara
 
 The callout is always **Shevarim-Teruah**. A separate cue says whether to breathe. Tekiah gedolah uses a coaching length only. A short gedolah is not a scoring error.
 
+Live session pacing (on by default): sitting 30 and after musaf continue set-to-set after a short review. Musaf waits for Next between each set. A failed set always waits so it can be repeated.
+
 ## Live meter
 
 The live tekiah target is a **minimum** (unit × 18 or 9), not a stopwatch of 5–10 seconds. Status becomes good at the floor and stays good if the blast continues. Auto-stop is a safety cap, not the shiur.
