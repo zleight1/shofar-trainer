@@ -62,6 +62,7 @@ export function expandClassified(
 
 export function kolosFromSet(take: SetTake, startIndex: number): SessionKol[] {
   if (!isPracticeSection(take.set.section)) return [];
+  const section = take.set.section;
   const expanded = expandClassified(take.blasts, take.unitSec);
   const middleSec = expanded
     .filter((b) => b.type === 'shevarim' || b.type === 'teruah' || b.type === 'shevarim_teruah')
@@ -82,7 +83,7 @@ export function kolosFromSet(take: SetTake, startIndex: number): SessionKol[] {
     return {
       index: startIndex + i,
       setId: take.set.id,
-      section: take.set.section,
+      section,
       pattern: take.set.pattern,
       type: blast.type,
       durationSec,
