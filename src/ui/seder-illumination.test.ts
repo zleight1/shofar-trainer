@@ -6,6 +6,7 @@ import { illuminationSvg, sectionSwatch } from './seder-illumination';
 import {
   buildSessionKols,
   expandClassified,
+  illuminationRecordFromTakes,
   kolosFromSet,
   passedSetCount,
   upsertSetTake,
@@ -156,6 +157,8 @@ describe('buildSessionKols', () => {
     expect(kols.filter((k) => k.section === 'sitting')).toHaveLength(30);
     expect(kols.filter((k) => k.type === 'tekiah_gedolah')).toHaveLength(2);
     expect(passedSetCount(takes)).toEqual({ passed: 30, total: 30 });
+    expect(illuminationRecordFromTakes(takes).kols).toHaveLength(100);
+    expect(illuminationRecordFromTakes(takes).passed).toBe(30);
   });
 });
 
@@ -188,6 +191,16 @@ describe('illuminationSvg', () => {
     expect(svg).toContain('kabbalahart.com');
     expect(svg).toContain('class="credit"');
     expect(svg).toContain('width="280"');
+  });
+
+  it('uses a unique clip id so history can show more than one graph', () => {
+    const kols = buildSessionKols(fullSederTakes());
+    const first = illuminationSvg(kols, { ...copy, clipId: 'one' });
+    const second = illuminationSvg(kols, { ...copy, clipId: 'two' });
+    expect(first).toContain('id="illumination-clip-one"');
+    expect(first).toContain('url(#illumination-clip-one)');
+    expect(second).toContain('id="illumination-clip-two"');
+    expect(first).not.toContain('illumination-clip-two');
   });
 
   it('writes Hebrew credit under the artwork', () => {

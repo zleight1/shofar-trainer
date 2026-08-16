@@ -46,6 +46,11 @@ describe('catalog', () => {
     expect(catalog('he').illuminationCredit).toContain('אברהם לוונטל');
     expect(catalog('en').illuminationShareText).toContain('https://www.kabbalahart.com/');
     expect(catalog('he').illuminationShareText).toContain('https://www.kabbalahart.com/');
+    expect(catalog('en').historyOpenIllumination.length).toBeGreaterThan(0);
+    expect(catalog('he').historyOpenIllumination.length).toBeGreaterThan(0);
+    expect(catalog('en').historyIlluminationSummary({ date: 'd', passed: 28, total: 30 })).toContain(
+      '28',
+    );
   });
 
   it('includes live-session copy in both catalogs', () => {

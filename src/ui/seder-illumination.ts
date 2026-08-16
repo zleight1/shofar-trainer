@@ -3,7 +3,6 @@ import type { Locale } from '../i18n/locale';
 import { catalog } from '../i18n/t';
 import { el, button } from './components';
 import type { PracticeSection, SessionKol } from './seder-illumination-model';
-import { passedSetCount, type SetTake } from './seder-illumination-model';
 import {
   ILLUMINATION_PNG_NAME,
   KABBALAH_ART_URL,
@@ -46,6 +45,14 @@ export interface IlluminationCopy {
   creditLine: string;
   creditUrlLabel: string;
   dir: 'ltr' | 'rtl';
+  clipId?: string;
+}
+
+export interface IlluminationView {
+  kols: SessionKol[];
+  passed: number;
+  total: number;
+  clipId?: string;
 }
 
 interface PlacedBand {
@@ -65,14 +72,15 @@ export function illuminationSvg(kols: SessionKol[], copy: IlluminationCopy): str
   const artH =
     placed.length === 0 ? TOP + BOTTOM + 40 : placed[placed.length - 1].y + placed[placed.length - 1].h + BOTTOM;
   const height = artH + CREDIT_H;
+  const clipId = clipPathId(copy.clipId);
   const parts: string[] = [];
   parts.push(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${NS_W}" height="${n(height)}" viewBox="0 0 ${NS_W} ${n(height)}" role="img" aria-label="${xml(copy.description)}">`,
     `<title>${xml(copy.title)}</title>`,
     `<desc>${xml(copy.description)}</desc>`,
-    `<defs><clipPath id="illumination-clip"><rect x="6" y="6" width="${NS_W - 12}" height="${n(artH - 12)}"/></clipPath></defs>`,
+    `<defs><clipPath id="${clipId}"><rect x="6" y="6" width="${NS_W - 12}" height="${n(artH - 12)}"/></clipPath></defs>`,
     `<rect class="parchment" width="${NS_W}" height="${n(height)}" fill="#f4ead6"/>`,
-    `<g clip-path="url(#illumination-clip)">`,
+    `<g clip-path="url(#${clipId})">`,
     textileGrain(artH),
     borderRow(10, '#d6c4a3'),
     `<line class="spine" x1="${CX}" x2="${CX}" y1="${TOP - 4}" y2="${n(artH - BOTTOM + 4)}" stroke="#c9b089" stroke-width="1.15"/>`,
@@ -105,24 +113,27 @@ export function illuminationSvg(kols: SessionKol[], copy: IlluminationCopy): str
 
 export function renderSederIllumination(
   parent: HTMLElement,
-  takes: SetTake[],
-  kols: SessionKol[],
+  view: IlluminationView,
   locale: Locale,
 ): HTMLElement {
   const c = catalog(locale);
-  const stats = passedSetCount(takes);
   const wrap = el('section', 'seder-illumination');
   wrap.appendChild(el('h2', 'illumination-title', c.illuminationTitle));
   wrap.appendChild(el('p', 'illumination-blurb', c.illuminationBlurb));
 
   const frame = el('div', 'illumination-frame');
   const mat = el('div', 'illumination-mat');
-  mat.innerHTML = illuminationSvg(kols, {
+  mat.innerHTML = illuminationSvg(view.kols, {
     title: c.illuminationTitle,
-    description: c.illuminationAria({ kolos: kols.length, passed: stats.passed, total: stats.total }),
+    description: c.illuminationAria({
+      kolos: view.kols.length,
+      passed: view.passed,
+      total: view.total,
+    }),
     creditLine: c.illuminationCreditLine,
     creditUrlLabel: c.illuminationCreditUrlLabel,
     dir: dirForLocale(locale),
+    clipId: view.clipId,
   });
   frame.appendChild(mat);
   wrap.appendChild(frame);
@@ -139,7 +150,7 @@ export function renderSederIllumination(
   wrap.appendChild(legend);
 
   wrap.appendChild(
-    el('p', 'illumination-stats', c.illuminationStats({ passed: stats.passed, total: stats.total })),
+    el('p', 'illumination-stats', c.illuminationStats({ passed: view.passed, total: view.total })),
   );
   wrap.appendChild(renderCredit(c.illuminationCredit, c.illuminationCreditLink));
 
@@ -229,6 +240,11 @@ function dirForLocale(locale: Locale): 'ltr' | 'rtl' {
       return _exhaustive;
     }
   }
+}
+
+function clipPathId(id: string | undefined): string {
+  const cleaned = (id ?? 'live').replace(/[^a-zA-Z0-9_-]/g, '');
+  return `illumination-clip-${cleaned || 'live'}`;
 }
 
 function legendSections(): PracticeSection[] {

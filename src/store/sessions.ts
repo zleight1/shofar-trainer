@@ -1,5 +1,5 @@
 import type { PracticeSession } from '../halacha/types';
-import { SESSIONS_STORAGE_KEY } from '../halacha/types';
+import { ILLUMINATIONS_STORAGE_KEY, SESSIONS_STORAGE_KEY } from '../halacha/types';
 import type { Locale } from '../i18n/locale';
 import { catalog, formatIssue } from '../i18n/t';
 
@@ -22,6 +22,7 @@ export function saveSession(session: PracticeSession): void {
 
 export function clearSessions(): void {
   localStorage.removeItem(SESSIONS_STORAGE_KEY);
+  localStorage.removeItem(ILLUMINATIONS_STORAGE_KEY);
 }
 
 export function getUnitDuration(): number | null {
