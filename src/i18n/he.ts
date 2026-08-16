@@ -45,6 +45,12 @@ export const he: MessageCatalog = {
   setProgressSubtitle: (p) =>
     `${p.section} · ${p.kolos} / ${p.totalKolos} קולות · תקיעה ${p.blast} מתוך ${p.blasts}`,
   sessionComplete: '100 הקולות הסתיימו. כל הכבוד.',
+  illuminationTitle: 'המאה',
+  illuminationBlurb:
+    'רישום חזותי של הסדר. כל פס הוא קול — הצורה לפי סוג הקול, הצבע לפי החלק, והרוחב לפי האורך.',
+  illuminationStats: (p) => `${p.passed} מתוך ${p.total} סטים עברו`,
+  illuminationSave: 'שמור תמונה',
+  illuminationAria: (p) => `רישום של ${p.kolos} קולות. ${p.passed} מתוך ${p.total} סטים עברו.`,
   calibrateCompleteSpeech: 'הכיול הסתיים. מתחילים את השלושים בישיבה.',
   blow: (p) => `תקעו: ${p.callout}`,
   listen: 'הקשיבו…',

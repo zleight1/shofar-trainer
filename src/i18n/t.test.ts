@@ -35,6 +35,13 @@ describe('catalog', () => {
     expect(catalog('he').redoSet.length).toBeGreaterThan(0);
   });
 
+  it('includes illumination copy in both catalogs', () => {
+    expect(catalog('en').illuminationTitle.length).toBeGreaterThan(0);
+    expect(catalog('he').illuminationTitle.length).toBeGreaterThan(0);
+    expect(catalog('en').illuminationSave.length).toBeGreaterThan(0);
+    expect(catalog('he').illuminationSave.length).toBeGreaterThan(0);
+  });
+
   it('includes live-session copy in both catalogs', () => {
     expect(catalog('en').liveSessionToggle.length).toBeGreaterThan(0);
     expect(catalog('he').liveSessionToggle.length).toBeGreaterThan(0);

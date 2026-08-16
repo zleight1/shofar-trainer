@@ -925,6 +925,93 @@
     text-wrap: balance;
   }
 
+  .seder-illumination {
+    margin: 1.25rem 0 1.5rem;
+  }
+
+  .illumination-title {
+    text-align: center;
+    font-size: 1.4rem;
+    margin: 0 0 0.35rem;
+  }
+
+  .illumination-blurb {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.45;
+    margin: 0 auto 1rem;
+    max-width: 36rem;
+  }
+
+  .session-complete-kicker {
+    text-align: center;
+    color: var(--pass);
+    font-weight: 600;
+    margin: 0.25rem 0 0.75rem;
+  }
+
+  .illumination-frame {
+    max-width: 22rem;
+    margin: 0 auto;
+    padding: 0.72rem;
+    border-radius: 3px;
+    background:
+      linear-gradient(145deg, #e8d5ae 0%, #b08950 22%, #8a5a28 48%, #c4a06a 76%, #6e4320 100%);
+    box-shadow:
+      0 18px 50px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 240, 210, 0.45),
+      inset 0 -1px 0 rgba(40, 20, 0, 0.35);
+  }
+
+  .illumination-mat {
+    background: #efe4cc;
+    padding: 0.5rem 0.42rem 0.38rem;
+    box-shadow: inset 0 0 0 1px #d9c7a0;
+  }
+
+  .illumination-mat svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .illumination-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem 0.85rem;
+    margin: 0.95rem 0 0.2rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  .illumination-swatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .illumination-swatch i {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 2px;
+    display: inline-block;
+    box-shadow: inset 0 0 0 1px #ffffff33;
+  }
+
+  .illumination-stats {
+    text-align: center;
+    font-weight: 600;
+    margin: 0.55rem 0 0;
+  }
+
+  .illumination-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.8rem;
+  }
+
   .app-header {
     display: flex;
     align-items: center;

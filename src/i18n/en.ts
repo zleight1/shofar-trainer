@@ -61,6 +61,14 @@ export const en = {
   }) =>
     `${p.section} · ${p.kolos} / ${p.totalKolos} kolos · blast ${p.blast} of ${p.blasts}`,
   sessionComplete: '100 blasts complete. Well done.',
+  illuminationTitle: 'The 100',
+  illuminationBlurb:
+    'A visual record of this seder. Each band is one kol — the shape is the blast, the color is the section, the width is how long you held it.',
+  illuminationStats: (p: { passed: number; total: number }) =>
+    `${p.passed} of ${p.total} sets passed`,
+  illuminationSave: 'Save image',
+  illuminationAria: (p: { kolos: number; passed: number; total: number }) =>
+    `Illumination of ${p.kolos} kolos. ${p.passed} of ${p.total} sets passed.`,
   calibrateCompleteSpeech: 'Calibration complete. Starting the sitting 30.',
   blow: (p: { callout: string }) => `Blow: ${p.callout}`,
   listen: 'Listen…',

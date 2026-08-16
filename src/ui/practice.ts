@@ -38,6 +38,8 @@ import { BLAST_ABBREV, renderSetTimeline } from './set-timeline';
 import { renderDiagnosticsPanel, type BlastAudioClip } from './diagnostics-panel';
 import { shouldCommitBlast } from './practice-run';
 import type { DetailedAnalysisResult } from '../audio/analyze';
+import { buildSessionKols, upsertSetTake, type SetTake } from './seder-illumination-model';
+import { renderSederIllumination } from './seder-illumination';
 
 export interface PracticeMountOptions {
   onBack: () => void;
@@ -76,6 +78,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let cancelCurrentBlast: (() => void) | null = null;
   let setLoopActive = false;
   let launchToken = 0;
+  let sessionTakes: SetTake[] = [];
   let liveSession = isLiveSessionEnabled();
   let leavingReview = false;
   let autoAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -369,8 +372,10 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const c = catalog(locale);
     options.onSessionLock?.(false);
     renderDisclaimer(container, locale);
-    container.appendChild(el('p', 'session-complete', c.sessionComplete));
-    const backBtn = button(c.backHome, 'btn primary btn-block');
+    container.appendChild(el('p', 'session-complete-kicker', c.sessionComplete));
+    const kols = buildSessionKols(sessionTakes);
+    renderSederIllumination(container, sessionTakes, kols, locale);
+    const backBtn = button(c.backHome, 'btn primary');
     backBtn.addEventListener('click', options.onBack);
     container.appendChild(backBtn);
   }
@@ -420,6 +425,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     stepIndex = 0;
     setBlasts = [];
     setAudio = [];
+    sessionTakes = [];
     middleDurationSec = 0;
     phase = 'calibration';
     options.onSessionLock?.(true);
@@ -564,6 +570,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       const classified = [...setBlasts];
       const scored = scoreRecording(classified, unitSec, set.pattern);
       lastAnalysis = buildGuidedSetAnalysis(classified, scored);
+      sessionTakes = upsertSetTake(sessionTakes, {
+        set,
+        blasts: classified,
+        issues: scored.issues,
+        passed: scored.passed,
+        unitSec,
+      });
 
       saveSession({
         id: crypto.randomUUID(),
