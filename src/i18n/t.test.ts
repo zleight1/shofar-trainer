@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { catalog, formatIssue } from './t';
+import { catalog, formatIssue, patternLabel, sectionLabel } from './t';
 
 describe('formatIssue', () => {
   it('uses catalog when params are present', () => {
@@ -47,5 +47,25 @@ describe('catalog', () => {
     expect(catalog('he').liveSessionToggle.length).toBeGreaterThan(0);
     expect(catalog('en').previousSet.length).toBeGreaterThan(0);
     expect(catalog('he').previousSet.length).toBeGreaterThan(0);
+  });
+
+  it('includes seder overview copy in both catalogs', () => {
+    expect(catalog('en').navSeder).toBe('Seder');
+    expect(catalog('he').navSeder).toBe('סדר');
+    expect(catalog('en').sederTitle.length).toBeGreaterThan(0);
+    expect(catalog('he').sederTitle.length).toBeGreaterThan(0);
+    expect(catalog('en').sederTotalLine({ n: 100 })).toContain('100');
+    expect(catalog('he').sederTotalLine({ n: 100 })).toContain('100');
+  });
+});
+
+describe('seder labels', () => {
+  it('names sections and patterns in English and Hebrew', () => {
+    expect(sectionLabel('sitting', catalog('en'))).toBe('Sitting 30');
+    expect(sectionLabel('shofarot', catalog('he'))).toBe('שופרות');
+    expect(patternLabel({ pattern: 'tst' }, catalog('en'))).toBe('Tashrat');
+    expect(patternLabel({ pattern: 'tt', closingGedolah: true }, catalog('en'))).toBe(
+      'Tarat with Tekiah Gedolah',
+    );
   });
 });

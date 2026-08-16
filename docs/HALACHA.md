@@ -32,7 +32,7 @@ A shever that lasts ≥ 9 units **fails** as a possible tekiah. Extra shevarim n
 
 ## Practice seder
 
-The app follows the common Ashkenazi Rosh Hashana seder of **100 blasts**. Calibration tashrat is first and is not in the 100.
+The app follows the common Ashkenazi Rosh Hashana seder of **100 blasts**. Calibration tashrat is first and is not in the 100. Open **Seder** in the app for the same order, notes, and when each section is blown.
 
 | Section | Sets | Tashrat breath | Closing blast |
 |---------|------|----------------|---------------|

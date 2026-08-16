@@ -44,8 +44,9 @@ This repo needs the same GitHub Actions secrets as `web-mishna`:
 
 1. **Calibrate** — Blow a teruah-style blast. The app learns your **unit** duration (shortest note length).
 2. **Practice** — Full Rosh Hashana seder of 100 blasts (sitting 30, musaf 30, after musaf 40). Calibration tashrat is first and is not in the 100. The app calls each blast, records, and reviews pass/fail. **Live session** (on by default) auto-continues the sitting 30 and the closing 40, waits for Next during musaf, and offers Redo / Previous if a set needs another take. Use **Redo set** during a set or on the review screen to start that set over. Tekiah auto-stop waits through short cracks and gaps so a struggling opening blast does not jump to the middle.
-3. **Sources** — Read Hebrew and English citations. Encoded rules are marked. Study-only texts are marked.
-4. **History** — Review past sessions stored locally. Rows from before this scoring change are labeled as previous average-ratio checks.
+3. **Seder** — Overview of the 100 kolos by when (sitting, musaf, after musaf), the notes in each kol, and where Tekiah Gedolah falls.
+4. **Sources** — Read Hebrew and English citations. Encoded rules are marked. Study-only texts are marked.
+5. **History** — Review past sessions stored locally. Rows from before this scoring change are labeled as previous average-ratio checks.
 
 ## Halachic rules encoded
 

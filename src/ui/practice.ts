@@ -27,7 +27,7 @@ import { SessionRecorder } from '../audio/session-recorder';
 import { getUnitDuration, saveSession, setUnitDuration } from '../store/sessions';
 import { isDiagnosticsEnabled } from '../store/diagnostics';
 import { isLiveSessionEnabled, setLiveSessionEnabled } from '../store/live-session';
-import { calloutForType, catalog, formatLiveLine } from '../i18n/t';
+import { calloutForType, catalog, formatLiveLine, patternLabel, sectionLabel } from '../i18n/t';
 import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { clipIdForBlast, setCalloutGate, speakCallout, unlockCallouts } from '../audio/callout-player';
@@ -145,52 +145,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     if (set.section === 'calibration') return c.setCalibration;
     const { n, of } = indexInSectionPattern(set);
     return c.setLine({
-      section: sectionName(set.section, c),
-      pattern: patternName(set, c),
+      section: sectionLabel(set.section, c),
+      pattern: patternLabel(set, c),
       n,
       of,
     });
-  }
-
-  function sectionName(
-    section: SetGroup['section'],
-    c: ReturnType<typeof catalog>,
-  ): string {
-    switch (section) {
-      case 'calibration':
-        return c.setCalibration;
-      case 'sitting':
-        return c.sectionSitting;
-      case 'malchuyot':
-        return c.sectionMalchuyot;
-      case 'zichronot':
-        return c.sectionZichronot;
-      case 'shofarot':
-        return c.sectionShofarot;
-      case 'afterMusaf':
-        return c.sectionAfterMusaf;
-      default: {
-        const _exhaustive: never = section;
-        return _exhaustive;
-      }
-    }
-  }
-
-  function patternName(set: SetGroup, c: ReturnType<typeof catalog>): string {
-    switch (set.pattern) {
-      case 'tst':
-        return c.patternTst;
-      case 'tsh':
-        return c.patternTsh;
-      case 'tt':
-        return set.closingGedolah ? c.patternTtGedolah : c.patternTt;
-      case 'gedolah':
-        return c.setGedolah;
-      default: {
-        const _exhaustive: never = set.pattern;
-        return _exhaustive;
-      }
-    }
   }
 
   function visibleCallout(step: GuidedBlastStep, locale: Locale): string {
@@ -388,7 +347,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const total = totalKolos();
     if (phase === 'set_review') {
       return c.setReviewSubtitle({
-        section: sectionName(set.section, c),
+        section: sectionLabel(set.section, c),
         n: setIndex + 1,
         total: SET_GROUPS.length,
         kolos: kolos + kolCountForSet(set),
@@ -396,7 +355,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       });
     }
     return c.setProgressSubtitle({
-      section: sectionName(set.section, c),
+      section: sectionLabel(set.section, c),
       n: setIndex + 1,
       total: SET_GROUPS.length,
       blast: stepIndex + 1,

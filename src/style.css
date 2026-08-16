@@ -120,6 +120,8 @@
     .tab-btn,
     .set-card,
     .source-card,
+    .seder-section,
+    .seder-card,
     .session-list li,
     .callout,
     .app-tabbar,
@@ -197,7 +199,8 @@
   .practice-view,
   .calibrate-view,
   .history-view,
-  .sources-view {
+  .sources-view,
+  .seder-overview {
     min-height: 100%;
   }
 
@@ -223,7 +226,7 @@
   .app-tabbar {
     grid-area: nav;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 0.2rem;
     padding: 0.35rem 0.4rem calc(0.45rem + var(--safe-bottom));
     padding-inline: calc(0.4rem + var(--safe-inline)) calc(0.4rem + env(safe-area-inset-right, 0px));
@@ -1085,6 +1088,157 @@
 
   .confirm-row {
     padding: 0.75rem;
+  }
+
+  .seder-when-title {
+    margin: 1.5rem 0 0.35rem;
+    font-size: 1.15rem;
+  }
+
+  .seder-card,
+  .seder-section {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin: 0.85rem 0;
+    border: 1px solid var(--line);
+  }
+
+  .seder-card h2,
+  .seder-section h3,
+  .seder-note-body h3 {
+    margin: 0 0 0.35rem;
+    font-size: 1.05rem;
+  }
+
+  .seder-card .instructions,
+  .seder-section .instructions,
+  .seder-section .breath-cue {
+    margin: 0 0 0.75rem;
+    text-align: start;
+  }
+
+  .seder-section {
+    border-inline-start: 4px solid var(--section-swatch, var(--accent));
+  }
+
+  .seder-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .seder-section-head h3 {
+    margin: 0;
+  }
+
+  .seder-section-meta {
+    margin: 0.15rem 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .seder-gedolah-flag {
+    margin: 0 0 0.75rem;
+    color: var(--blast-gedolah);
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+
+  .seder-round {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.45rem 0 0;
+  }
+
+  .seder-set {
+    flex: 1 1 6.25rem;
+    min-width: 0;
+    padding: 0.55rem 0.5rem 0.6rem;
+    border-radius: 0.75rem;
+    background: var(--surface2);
+    border: 1px solid var(--line);
+  }
+
+  .seder-set-label {
+    margin: 0 0 0.4rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .seder-kol-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.28rem;
+  }
+
+  .seder-kol {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.85rem;
+    padding: 0.22rem 0.35rem;
+    border-radius: 0.45rem;
+    background: color-mix(in oklab, var(--ink) 35%, transparent);
+    color: var(--blast-tekiah);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .seder-kol.type-shevarim {
+    color: var(--blast-shevarim);
+  }
+
+  .seder-kol.type-teruah {
+    color: var(--blast-teruah);
+  }
+
+  .seder-kol.type-shevarim_teruah {
+    color: var(--blast-combo);
+  }
+
+  .seder-kol.type-tekiah_gedolah {
+    color: var(--blast-gedolah);
+    min-width: 2.15rem;
+  }
+
+  .seder-breath {
+    color: var(--warn);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .seder-notes {
+    list-style: none;
+    padding: 0;
+    margin: 0.35rem 0 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .seder-note {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.7rem;
+    align-items: start;
+  }
+
+  .seder-note-body p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .seder-pacing .instructions {
+    margin: 0;
   }
 }
 
