@@ -433,6 +433,10 @@
     margin: 0.75rem 0 1rem;
   }
 
+  .live-stage > * {
+    min-inline-size: 0;
+  }
+
   .live-meta {
     display: grid;
     gap: 0.35rem;
@@ -1081,28 +1085,38 @@
 }
 
 @layer responsive {
+  /* Later layer than `components`, so session-lock hide must live here or
+     landscape `display: flex` on `.app-tabbar` will keep the nav visible. */
+  .app-shell.session-locked .app-tabbar {
+    display: none;
+  }
+
   @container stage (min-width: 36rem) {
     .live-stage {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1.25fr);
       grid-template-areas:
         'callout wave'
         'meta wave';
-      align-items: stretch;
+      align-items: start;
     }
 
     .live-stage .callout {
       grid-area: callout;
-      align-self: end;
+      align-self: start;
     }
 
     .live-stage .live-meta {
       grid-area: meta;
     }
 
-    .live-stage .waveform {
+    .live-stage .waveform,
+    .live-stage .waveform.live {
       grid-area: wave;
-      height: 100%;
-      min-height: 180px;
+      align-self: start;
+      inline-size: 100%;
+      block-size: 12.5rem;
+      min-block-size: 12.5rem;
+      height: 12.5rem;
       margin: 0;
     }
   }
@@ -1241,29 +1255,29 @@
     .tab-label {
       white-space: normal;
     }
+
+    .app-shell.session-locked .app-tabbar {
+      display: none;
+    }
   }
 
-  @media (min-width: 1100px) and (min-height: 800px) and (pointer: fine) {
-    body {
-      display: grid;
-      place-items: center;
-      padding: 1.25rem;
+  @media (min-width: 1100px) and (pointer: fine) {
+    .app-content {
+      padding-inline: clamp(1.25rem, 3vw, 2.5rem);
     }
 
-    #app {
-      width: min(52rem, 100%);
-      height: min(58rem, 100dvh - 2.5rem);
-      min-height: 0;
-      border-radius: 1.75rem;
-      overflow: hidden;
-      box-shadow:
-        0 24px 80px color-mix(in oklab, black 45%, transparent),
-        inset 0 0 0 1px var(--line);
+    .history-view,
+    .sources-view,
+    .practice-view:not(:has(.live-stage)) {
+      width: min(100%, 44rem);
+      margin-inline: auto;
     }
 
-    .app-shell {
-      min-height: 0;
-      height: 100%;
+    .calibrate-view,
+    .practice-view:has(.live-stage),
+    .practice-view:has(.set-timeline) {
+      width: min(100%, 64rem);
+      margin-inline: auto;
     }
   }
 }
