@@ -34,4 +34,11 @@ describe('catalog', () => {
     expect(catalog('en').redoSet.length).toBeGreaterThan(0);
     expect(catalog('he').redoSet.length).toBeGreaterThan(0);
   });
+
+  it('includes live-session copy in both catalogs', () => {
+    expect(catalog('en').liveSessionToggle.length).toBeGreaterThan(0);
+    expect(catalog('he').liveSessionToggle.length).toBeGreaterThan(0);
+    expect(catalog('en').previousSet.length).toBeGreaterThan(0);
+    expect(catalog('he').previousSet.length).toBeGreaterThan(0);
+  });
 });
