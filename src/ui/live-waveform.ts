@@ -9,6 +9,32 @@ export interface LiveWaveformOptions {
   getTiming?: () => LiveTimingState | null;
 }
 
+export interface TimingOverlayLayout {
+  fontPx: number;
+  barH: number;
+  y: number;
+  reserved: number;
+  font: string;
+}
+
+/** Compact overlay on short canvases; larger type on desktop live waveforms. */
+export function timingOverlayLayout(canvasHeight: number): TimingOverlayLayout {
+  const compact = canvasHeight < 140;
+  const fontPx = compact
+    ? 11
+    : Math.round(Math.min(36, Math.max(26, canvasHeight * 0.14)));
+  const barH = compact ? 20 : Math.round(fontPx * 1.45 + 10);
+  const bottomPad = compact ? 8 : 10;
+  const y = canvasHeight - barH - bottomPad;
+  return {
+    fontPx,
+    barH,
+    y,
+    reserved: barH + bottomPad + 8,
+    font: compact ? `${fontPx}px system-ui, sans-serif` : `bold ${fontPx}px system-ui, sans-serif`,
+  };
+}
+
 export class LiveWaveform {
   private rafId = 0;
   private peaks: number[] = [];
@@ -77,15 +103,16 @@ export class LiveWaveform {
     ctx.fillRect(0, 0, width, height);
 
     const timing = this.getTiming?.();
+    const overlay = timingOverlayLayout(height);
     const historyH = Math.floor(height * 0.4);
-    const scopeH = height - historyH - 36;
+    const scopeH = height - historyH - overlay.reserved;
     const scopeY = historyH + 4;
 
     this.drawHistory(ctx, width, historyH, peak);
     this.drawScope(ctx, width, scopeH, scopeY, buffer);
     this.drawLevelMeter(ctx, width, peak, timing);
     this.drawRecBadge(ctx, peak);
-    if (timing) this.drawTimingBar(ctx, width, height - 28, timing);
+    if (timing) this.drawTimingBar(ctx, width, overlay, timing);
   }
 
   private drawHistory(
@@ -171,15 +198,15 @@ export class LiveWaveform {
   private drawTimingBar(
     ctx: CanvasRenderingContext2D,
     width: number,
-    y: number,
+    overlay: TimingOverlayLayout,
     timing: LiveTimingState,
   ): void {
     const pad = 8;
     const barW = width - pad * 2;
-    const h = 20;
+    const { y, barH, font, fontPx } = overlay;
 
     ctx.fillStyle = '#1a2744';
-    ctx.fillRect(pad, y, barW, h);
+    ctx.fillRect(pad, y, barW, barH);
 
     const fillW = barW * Math.min(timing.progress, 1);
     const colors: Record<string, string> = {
@@ -190,24 +217,28 @@ export class LiveWaveform {
       too_long: '#f87171',
     };
     ctx.fillStyle = colors[timing.status] ?? '#60a5fa';
-    ctx.fillRect(pad, y, fillW, h);
+    ctx.fillRect(pad, y, fillW, barH);
 
     const idealX = pad + barW * Math.min(timing.targetIdealSec / timing.targetMaxSec, 1);
     ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(idealX, y);
-    ctx.lineTo(idealX, y + h);
+    ctx.lineTo(idealX, y + barH);
     ctx.stroke();
 
-    ctx.fillStyle = '#e2e8f0';
-    ctx.font = '11px system-ui, sans-serif';
+    const label = `${timing.elapsedSec.toFixed(1)} / ${timing.targetMinSec.toFixed(1)}`;
+    const cx = width / 2;
+    const cy = y + barH / 2;
+    ctx.font = font;
     ctx.textAlign = 'center';
-    ctx.fillText(
-      `${timing.elapsedSec.toFixed(1)} / ${timing.targetMinSec.toFixed(1)}`,
-      width / 2,
-      y + 14,
-    );
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(3, fontPx / 8);
+    ctx.strokeStyle = '#0f1628cc';
+    ctx.strokeText(label, cx, cy);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillText(label, cx, cy);
   }
 
   private drawRecBadge(ctx: CanvasRenderingContext2D, peak: number): void {
