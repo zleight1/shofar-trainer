@@ -140,7 +140,13 @@ function mountApp(): void {
         }),
       );
     } else if (view === 'history') {
-      unmount = mountHistory(content, { onBack: () => navigate('practice'), onLocale });
+      unmount = bindUnmount(
+        mountHistory(content, {
+          onBack: () => navigate('practice'),
+          onLocale,
+          onRefreshRegister,
+        }),
+      );
     } else if (view === 'sources') {
       unmount = mountSources(content, { onBack: () => navigate('practice'), onLocale });
     } else {

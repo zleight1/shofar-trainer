@@ -98,9 +98,15 @@ export const en = {
   saveContinue: 'Save & continue',
   skipForNow: 'Skip for now',
   historyTitle: 'Session History',
-  historyEmpty: 'No sessions yet. Complete a practice set to see results here.',
+  historyEmpty:
+    'No sessions yet. Complete a practice set to see results here. Finish the 100 to keep the artwork in History.',
   historyStats: (p: { passed: number; total: number }) =>
     `${p.passed}/${p.total} sets passed overall`,
+  historyIlluminationsTitle: 'The 100',
+  historySetsTitle: 'Sets',
+  historyOpenIllumination: 'Open artwork',
+  historyIlluminationSummary: (p: { date: string; passed: number; total: number }) =>
+    `${p.date} — ${p.passed} of ${p.total} sets passed`,
   clearHistory: 'Clear history',
   confirmClear: 'Clear all session history?',
   confirmYes: 'Clear',

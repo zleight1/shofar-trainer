@@ -112,6 +112,19 @@ export function passedSetCount(takes: SetTake[]): { passed: number; total: numbe
   };
 }
 
+export function illuminationRecordFromTakes(takes: SetTake[]): {
+  kols: SessionKol[];
+  passed: number;
+  total: number;
+} {
+  const stats = passedSetCount(takes);
+  return {
+    kols: buildSessionKols(takes),
+    passed: stats.passed,
+    total: stats.total,
+  };
+}
+
 /** Replace a set's take on redo; append when the set is new to the session. */
 export function upsertSetTake(takes: SetTake[], take: SetTake): SetTake[] {
   const existing = takes.findIndex((t) => t.set.id === take.set.id);
