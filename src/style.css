@@ -210,10 +210,6 @@
     .practice-view .hero {
       padding: 1.6rem 1.25rem 1.7rem;
     }
-
-    .practice-view .diag-toggle {
-      margin-top: auto;
-    }
   }
 
   .app-shell.session-locked .app-content {
@@ -437,6 +433,12 @@
     min-inline-size: 0;
   }
 
+  .live-copy {
+    display: grid;
+    gap: 0.45rem;
+    align-content: start;
+  }
+
   .live-meta {
     display: grid;
     gap: 0.35rem;
@@ -502,14 +504,17 @@
     gap: 0.5rem;
     align-items: stretch;
     overflow-x: auto;
+    padding-block-end: 0.2rem;
   }
 
   .timeline-blast {
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
-    min-width: 4.25rem;
-    padding: 0.7rem 0.6rem 0.6rem;
+    overflow: hidden;
+    flex: var(--blast-flex, 1) 0 0;
+    min-inline-size: 5rem;
+    padding: 0.7rem 0.65rem 0.65rem;
     border-radius: 10px;
     background: var(--surface2);
     border: 1px solid transparent;
@@ -518,16 +523,17 @@
 
   .timeline-blast.type-shevarim {
     color: var(--blast-shevarim);
-    min-width: 5.5rem;
+    min-inline-size: 6rem;
   }
 
   .timeline-blast.type-teruah {
     color: var(--blast-teruah);
-    min-width: 7.5rem;
+    min-inline-size: 8.5rem;
   }
 
   .timeline-blast.type-shevarim_teruah {
     color: var(--blast-combo);
+    min-inline-size: 10.5rem;
   }
 
   .timeline-blast.type-tekiah_gedolah {
@@ -545,9 +551,11 @@
 
   .timeline-name {
     display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    min-height: 1.35rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    min-inline-size: 0;
+    overflow: hidden;
   }
 
   .timeline-abbrev {
@@ -558,6 +566,8 @@
   }
 
   .timeline-label {
+    max-inline-size: 100%;
+    min-inline-size: 0;
     font-size: 0.72rem;
     color: var(--muted);
     overflow: hidden;
@@ -589,12 +599,15 @@
     display: flex;
     gap: 3px;
     align-items: flex-end;
-    height: 2.4rem;
+    block-size: 2.75rem;
+    min-inline-size: 0;
+    overflow: hidden;
   }
 
   .timeline-note {
     flex: 1 1 0;
-    min-width: 5px;
+    min-inline-size: 6px;
+    min-width: 6px;
     border-radius: 3px 3px 2px 2px;
     background: currentColor;
     transform-origin: center bottom;
@@ -1091,32 +1104,57 @@
     display: none;
   }
 
+  @container stage (max-width: 40rem) {
+    .set-timeline-track {
+      flex-direction: column;
+    }
+
+    .timeline-blast,
+    .timeline-blast.type-shevarim,
+    .timeline-blast.type-teruah,
+    .timeline-blast.type-shevarim_teruah {
+      flex: 0 0 auto;
+      min-inline-size: 0;
+      width: 100%;
+    }
+  }
+
   @container stage (min-width: 36rem) {
     .live-stage {
       grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1.25fr);
-      grid-template-areas:
-        'callout wave'
-        'meta wave';
-      align-items: start;
+      grid-template-areas: 'copy wave';
+      align-items: stretch;
     }
 
-    .live-stage .callout {
-      grid-area: callout;
-      align-self: start;
+    .live-stage .live-copy {
+      grid-area: copy;
+      align-content: center;
+      justify-items: center;
+      min-block-size: 12.5rem;
+      padding: 1rem 1.1rem;
+      background: var(--surface2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      text-align: center;
     }
 
-    .live-stage .live-meta {
-      grid-area: meta;
+    .live-stage .live-copy .callout,
+    .live-stage .live-copy .callout.preparing,
+    .live-stage .live-copy .callout.recording {
+      background: transparent;
+      border: none;
+      padding: 0.15rem 0;
+      animation: none;
+      box-shadow: none;
     }
 
     .live-stage .waveform,
     .live-stage .waveform.live {
       grid-area: wave;
-      align-self: start;
       inline-size: 100%;
-      block-size: 12.5rem;
+      block-size: auto;
       min-block-size: 12.5rem;
-      height: 12.5rem;
+      height: auto;
       margin: 0;
     }
   }
@@ -1162,15 +1200,20 @@
 
     .live-stage {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-      grid-template-areas:
-        'callout wave'
-        'meta wave';
+      grid-template-areas: 'copy wave';
+      align-items: center;
       gap: 0.5rem;
       margin: 0.4rem 0 0.6rem;
     }
 
-    .live-stage .callout { grid-area: callout; }
-    .live-stage .live-meta { grid-area: meta; }
+    .live-stage .live-copy {
+      grid-area: copy;
+      min-block-size: 0;
+      align-content: center;
+    }
+
+    .live-stage .callout { padding: 0.65rem 0.8rem; }
+
     .live-stage .waveform,
     .live-stage .waveform.live {
       grid-area: wave;
@@ -1261,8 +1304,11 @@
     }
   }
 
-  @media (min-width: 1100px) and (pointer: fine) {
+  @media (min-width: 1100px) {
     .app-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       padding-inline: clamp(1.25rem, 3vw, 2.5rem);
     }
 

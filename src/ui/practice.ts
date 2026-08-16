@@ -239,7 +239,6 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       } else {
         callout.textContent = visibleCallout(step, locale);
       }
-      stage.appendChild(callout);
 
       const meta = el('div', 'live-meta');
       if (step?.breath === 'none') {
@@ -254,7 +253,10 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
         timingEl.className = `live-timing status-${currentTiming.status}`;
       }
       meta.appendChild(timingEl);
-      stage.appendChild(meta);
+
+      const copy = el('div', 'live-copy');
+      copy.append(callout, meta);
+      stage.appendChild(copy);
 
       const canvas = el('canvas', 'waveform live');
       canvas.height = 220;

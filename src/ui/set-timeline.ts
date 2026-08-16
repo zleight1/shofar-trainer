@@ -128,9 +128,7 @@ function renderBlastCard(blast: TimelineBlastView, locale: Locale): HTMLElement 
   const c = catalog(locale);
   const card = el('article', `timeline-blast type-${blast.type} status-${blast.status}`);
   card.setAttribute('role', 'listitem');
-  card.style.flexGrow = String(blast.flexGrow);
-  card.style.flexShrink = '1';
-  card.style.flexBasis = '0';
+  card.style.setProperty('--blast-flex', String(blast.flexGrow));
 
   const label = blastLabel(blast.type, locale);
   const sec = blast.durationSec.toFixed(1);
