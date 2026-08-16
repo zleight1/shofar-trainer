@@ -182,9 +182,16 @@
     overscroll-behavior: contain;
     padding: 1rem 1.1rem 1.25rem;
     padding-inline: calc(1.1rem + var(--safe-inline)) calc(1.1rem + env(safe-area-inset-right, 0px));
-    container: stage / inline-size;
+    container-name: stage;
+    container-type: inline-size;
     scrollbar-color: var(--accent-deep) var(--surface);
     scrollbar-width: thin;
+  }
+
+  @supports (container-type: size) {
+    .app-content {
+      container-type: size;
+    }
   }
 
   .practice-view,
@@ -192,6 +199,21 @@
   .history-view,
   .sources-view {
     min-height: 100%;
+  }
+
+  @container stage (min-height: 36rem) {
+    .practice-view {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .practice-view .hero {
+      padding: 1.6rem 1.25rem 1.7rem;
+    }
+
+    .practice-view .diag-toggle {
+      margin-top: auto;
+    }
   }
 
   .app-shell.session-locked .app-content {
@@ -350,7 +372,7 @@
   }
 
   .btn-block {
-    width: 100%;
+    width: min(100%, 24rem);
   }
 
   .controls {
@@ -1022,8 +1044,8 @@
 
     .waveform,
     .waveform.live {
-      height: 96px;
-      min-height: 96px;
+      height: 72px;
+      min-height: 72px;
     }
 
     .live-stage {
@@ -1037,7 +1059,51 @@
 
     .live-stage .callout { grid-area: callout; }
     .live-stage .live-meta { grid-area: meta; }
-    .live-stage .waveform { grid-area: wave; }
+    .live-stage .waveform,
+    .live-stage .waveform.live {
+      grid-area: wave;
+      height: 72px;
+      min-height: 72px;
+    }
+
+    .calibrate-view,
+    .practice-view {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .calibrate-view .instructions,
+    .practice-view .instructions,
+    .practice-view .disclaimer {
+      margin-bottom: 0.45rem;
+      font-size: 0.85rem;
+    }
+
+    .calibrate-view .instructions {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+    }
+
+    .calibrate-view .live-stage {
+      flex: 0 0 auto;
+      min-height: 0;
+      margin: 0.25rem 0;
+    }
+
+    .calibrate-view .controls,
+    .practice-view .controls {
+      flex-wrap: nowrap;
+      margin-top: 0.4rem;
+    }
+
+    .calibrate-view .btn-block,
+    .practice-view .btn-block {
+      width: auto;
+      flex: 1 1 auto;
+    }
   }
 
   @media (min-width: 768px) and (min-height: 560px) and (orientation: landscape) {
