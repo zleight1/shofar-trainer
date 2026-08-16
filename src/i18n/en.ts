@@ -29,9 +29,16 @@ export const en = {
   nextSet: 'Next set',
   stopSession: 'Stop session',
   startGuided: 'Start guided session',
+  liveSessionToggle: 'Live session',
+  liveSessionHint:
+    'Sitting 30 and the closing 40 continue on their own. During musaf, wait for Next between sets. Repeat a set if a blast needs a redo.',
+  repeatSet: 'Repeat set',
+  previousSet: 'Previous set',
+  liveContinuing: 'Continuing automatically…',
+  livePaused: 'Tap Next when ready, or Repeat this set.',
   practiceTitle: 'Guided Practice',
   practiceIntro:
-    'Full Rosh Hashana seder: 100 blasts. Sitting 30 with no breath in shevarim-teruah, then musaf and after musaf with a breath. Starts with a calibration tashrat.',
+    'Full Rosh Hashana seder: 100 blasts. Sitting 30 with no breath in shevarim-teruah, then musaf and after musaf with a breath. Starts with a calibration tashrat. Live session (on by default) runs like shul: auto-continue the first 30 and the end, and pause during the musaf repetition.',
   calibrationIntro:
     'First, blow one sitting tashrat (Tekiah · Shevarim-Teruah in one breath · Tekiah). The app learns your timing from this.',
   calibrationSubtitle: 'Calibration — tashrat',

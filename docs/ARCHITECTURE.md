@@ -23,6 +23,7 @@ Audio pipeline
 |------|----------------|
 | `src/halacha/types.ts` | Shared types and default config |
 | `src/halacha/seder.ts` | Seder steps and set groups |
+| `src/halacha/live-pacing.ts` | Live-session auto-advance vs wait between sets |
 | `src/halacha/rules.ts` | Scoring and pattern assembly |
 | `src/audio/capture.ts` | Mic recording, synthetic test signals |
 | `src/audio/envelope.ts` | RMS envelope |
@@ -30,6 +31,7 @@ Audio pipeline
 | `src/audio/classify.ts` | Single-blast classification heuristics |
 | `src/audio/analyze.ts` | End-to-end analyze entry points |
 | `src/store/sessions.ts` | localStorage persistence |
+| `src/store/live-session.ts` | Live-session pacing toggle |
 | `src/ui/*` | Screens and waveform rendering |
 
 ## Design decisions

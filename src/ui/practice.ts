@@ -6,6 +6,11 @@ import {
   totalKolos,
 } from '../halacha/seder';
 import type { SetGroup } from '../halacha/seder';
+import {
+  autoAdvanceDelayMs,
+  canGoToPreviousSet,
+  reviewPacing,
+} from '../halacha/live-pacing';
 import { CALIBRATION_SET, guidedStepsForSet } from '../halacha/guided-steps';
 import type { GuidedBlastStep } from '../halacha/guided-steps';
 import { expectedDurationForType } from '../halacha/duration-targets';
@@ -17,6 +22,7 @@ import { waitForBlastEnd, type AutoStopResult } from '../audio/auto-stop';
 import { SessionRecorder } from '../audio/session-recorder';
 import { getUnitDuration, saveSession, setUnitDuration } from '../store/sessions';
 import { isDiagnosticsEnabled } from '../store/diagnostics';
+import { isLiveSessionEnabled, setLiveSessionEnabled } from '../store/live-session';
 import { calloutForType, catalog, formatLiveLine } from '../i18n/t';
 import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
@@ -60,6 +66,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let abortSession = false;
   let running = false;
   let mounted = true;
+  let liveSession = isLiveSessionEnabled();
+  let leavingReview = false;
+  let autoAdvanceTimer: ReturnType<typeof setTimeout> | null = null;
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
@@ -76,6 +85,41 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
   function delay(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
+  }
+
+  function prefersReducedMotion(): boolean {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function cancelAutoAdvance(): void {
+    if (autoAdvanceTimer !== null) {
+      clearTimeout(autoAdvanceTimer);
+      autoAdvanceTimer = null;
+    }
+  }
+
+  function currentReviewPacing(): ReturnType<typeof reviewPacing> {
+    return reviewPacing({
+      liveSession,
+      setIndex,
+      passed: lastAnalysis?.passed ?? false,
+    });
+  }
+
+  function scheduleAutoAdvanceIfNeeded(): void {
+    cancelAutoAdvance();
+    if (phase !== 'set_review' || currentReviewPacing() !== 'auto') return;
+    autoAdvanceTimer = setTimeout(() => {
+      autoAdvanceTimer = null;
+      void advanceAfterSet();
+    }, autoAdvanceDelayMs(prefersReducedMotion()));
+  }
+
+  function beginLeaveReview(): boolean {
+    if (phase !== 'set_review' || leavingReview) return false;
+    leavingReview = true;
+    cancelAutoAdvance();
+    return true;
   }
 
   function currentSet(): SetGroup {
@@ -244,12 +288,24 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
     const controls = el('div', 'controls');
     if (phase === 'set_review') {
+      const pacing = currentReviewPacing();
+      container.appendChild(
+        el('p', 'live-pacing-note', pacing === 'auto' ? c.liveContinuing : c.livePaused),
+      );
       const nextBtn = button(
         setIndex >= SET_GROUPS.length - 1 ? c.finish : c.nextSet,
         'btn primary',
       );
       nextBtn.addEventListener('click', () => void advanceAfterSet());
       controls.appendChild(nextBtn);
+      const repeatBtn = button(c.repeatSet, 'btn secondary');
+      repeatBtn.addEventListener('click', () => void repeatCurrentSet());
+      controls.appendChild(repeatBtn);
+      if (canGoToPreviousSet(setIndex)) {
+        const prevBtn = button(c.previousSet, 'btn secondary');
+        prevBtn.addEventListener('click', () => void goToPreviousSet());
+        controls.appendChild(prevBtn);
+      }
     } else if (!running) {
       const stopBtn = button(c.stopSession, 'btn secondary');
       stopBtn.addEventListener('click', () => {
@@ -269,6 +325,21 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const c = catalog(locale);
     renderDisclaimer(container, locale);
     container.appendChild(el('p', 'instructions', c.practiceIntro));
+    const liveToggle = el('label', 'live-toggle');
+    const liveBox = el('input');
+    liveBox.type = 'checkbox';
+    liveBox.checked = isLiveSessionEnabled();
+    liveBox.setAttribute('aria-describedby', 'live-session-hint');
+    liveBox.addEventListener('change', () => {
+      setLiveSessionEnabled(liveBox.checked);
+      liveSession = liveBox.checked;
+    });
+    liveToggle.appendChild(liveBox);
+    liveToggle.appendChild(document.createTextNode(c.liveSessionToggle));
+    container.appendChild(liveToggle);
+    const liveHint = el('p', 'diagnostics-muted', c.liveSessionHint);
+    liveHint.id = 'live-session-hint';
+    container.appendChild(liveHint);
     if (isDiagnosticsEnabled()) {
       container.appendChild(el('p', 'diagnostics-muted', c.diagnosticsHint));
     }
@@ -330,6 +401,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
   async function startSession(): Promise<void> {
     abortSession = false;
+    liveSession = isLiveSessionEnabled();
+    leavingReview = false;
+    cancelAutoAdvance();
     setIndex = 0;
     stepIndex = 0;
     setBlasts = [];
@@ -407,7 +481,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     currentTiming = null;
     options.onBusy?.(false);
     phase = 'set_review';
+    leavingReview = false;
     render();
+    scheduleAutoAdvanceIfNeeded();
   }
 
   async function runGuidedBlast(
@@ -519,25 +595,47 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   }
 
   async function advanceAfterSet(): Promise<void> {
+    if (!beginLeaveReview()) return;
     if (setIndex >= SET_GROUPS.length - 1) {
       phase = 'done';
+      leavingReview = false;
       render();
       setCalloutGate({});
       session.close();
       return;
     }
-    setIndex++;
+    await startSetAtIndex(setIndex + 1);
+  }
+
+  async function repeatCurrentSet(): Promise<void> {
+    if (!beginLeaveReview()) return;
+    await startSetAtIndex(setIndex);
+  }
+
+  async function goToPreviousSet(): Promise<void> {
+    if (!canGoToPreviousSet(setIndex)) return;
+    if (!beginLeaveReview()) return;
+    await startSetAtIndex(setIndex - 1);
+  }
+
+  async function startSetAtIndex(index: number): Promise<void> {
+    setIndex = index;
     stepIndex = 0;
     phase = 'set';
     lastAnalysis = null;
     options.onBusy?.(true);
     render();
     await delay(600);
+    if (abortSession || !mounted) {
+      leavingReview = false;
+      return;
+    }
     await runCurrentSet();
   }
 
   async function teardownAndBack(): Promise<void> {
     abortSession = true;
+    cancelAutoAdvance();
     detachLive();
     setCalloutGate({});
     session.close();
@@ -551,6 +649,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   return () => {
     mounted = false;
     abortSession = true;
+    cancelAutoAdvance();
     detachLive();
     setCalloutGate({});
     session.close();

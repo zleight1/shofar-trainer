@@ -522,13 +522,20 @@ h1, h2, h3 {
   border-inline-start: 3px solid var(--fail);
 }
 
-.diag-toggle {
+.diag-toggle,
+.live-toggle {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-top: 1.25rem;
   font-weight: 600;
   cursor: pointer;
+}
+
+.live-pacing-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0.75rem 0 0;
 }
 
 .diagnostics-muted {
