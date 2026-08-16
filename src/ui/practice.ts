@@ -355,7 +355,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     liveToggle.appendChild(liveBox);
     liveToggle.appendChild(document.createTextNode(c.liveSessionToggle));
     container.appendChild(liveToggle);
-    const liveHint = el('p', 'diagnostics-muted', c.liveSessionHint);
+    const liveHint = el('p', 'diagnostics-muted live-session-hint', c.liveSessionHint);
     liveHint.id = 'live-session-hint';
     container.appendChild(liveHint);
     const startBtn = button(c.startGuided, 'btn primary btn-block');
