@@ -13,7 +13,11 @@ import { liveTimingState, type LiveTimingState } from '../halacha/live-timing';
 import { scoreRecording } from '../halacha/rules';
 import type { BlastType, ClassifiedBlast } from '../halacha/types';
 import { analyzeSingleBlast, buildGuidedSetAnalysis, inferUnitFromBlasts } from '../audio/analyze-blast';
-import { waitForBlastEnd, type AutoStopResult } from '../audio/auto-stop';
+import {
+  autoStopOptionsForBlast,
+  waitForBlastEnd,
+  type AutoStopResult,
+} from '../audio/auto-stop';
 import { SessionRecorder } from '../audio/session-recorder';
 import { getUnitDuration, saveSession, setUnitDuration } from '../store/sessions';
 import { isDiagnosticsEnabled } from '../store/diagnostics';
@@ -26,6 +30,7 @@ import { renderAppHeader, renderDisclaimer } from './chrome';
 import { attachLiveWaveform } from './live-waveform';
 import { BLAST_ABBREV, renderSetTimeline } from './set-timeline';
 import { renderDiagnosticsPanel, type BlastAudioClip } from './diagnostics-panel';
+import { shouldCommitBlast } from './practice-run';
 import type { DetailedAnalysisResult } from '../audio/analyze';
 
 export interface PracticeMountOptions {
@@ -60,6 +65,10 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let abortSession = false;
   let running = false;
   let mounted = true;
+  let setGeneration = 0;
+  let cancelCurrentBlast: (() => void) | null = null;
+  let setLoopActive = false;
+  let launchToken = 0;
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
@@ -243,6 +252,8 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     }
 
     const controls = el('div', 'controls');
+    const redoBtn = button(c.redoSet, 'btn secondary');
+    redoBtn.addEventListener('click', () => void requestRedoSet());
     if (phase === 'set_review') {
       const nextBtn = button(
         setIndex >= SET_GROUPS.length - 1 ? c.finish : c.nextSet,
@@ -250,13 +261,17 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       );
       nextBtn.addEventListener('click', () => void advanceAfterSet());
       controls.appendChild(nextBtn);
-    } else if (!running) {
-      const stopBtn = button(c.stopSession, 'btn secondary');
-      stopBtn.addEventListener('click', () => {
-        abortSession = true;
-        void teardownAndBack();
-      });
-      controls.appendChild(stopBtn);
+      controls.appendChild(redoBtn);
+    } else if (phase === 'set' || phase === 'calibration') {
+      controls.appendChild(redoBtn);
+      if (!running) {
+        const stopBtn = button(c.stopSession, 'btn secondary');
+        stopBtn.addEventListener('click', () => {
+          abortSession = true;
+          void teardownAndBack();
+        });
+        controls.appendChild(stopBtn);
+      }
     }
     const exitBtn = button(c.exit, 'btn secondary');
     exitBtn.addEventListener('click', () => void teardownAndBack());
@@ -330,9 +345,11 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
 
   async function startSession(): Promise<void> {
     abortSession = false;
+    setGeneration = 0;
     setIndex = 0;
     stepIndex = 0;
     setBlasts = [];
+    setAudio = [];
     middleDurationSec = 0;
     phase = 'calibration';
     options.onBusy?.(true);
@@ -346,68 +363,145 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     await runCalibration();
   }
 
-  async function runCalibration(): Promise<void> {
-    const steps = guidedStepsForSet(CALIBRATION_SET);
-    const blasts: ClassifiedBlast[] = [];
-    middleDurationSec = 0;
-
-    for (let i = 0; i < steps.length; i++) {
-      if (abortSession) return;
-      stepIndex = i;
-      const blast = await runGuidedBlast(steps[i], middleDurationSec, i === steps.length - 1);
-      blasts.push(blast);
-      middleDurationSec += middleContribution(blast.type, blast.totalDurationSec);
-    }
-
-    unitSec = inferUnitFromBlasts(blasts, unitSec);
-    setUnitDuration(unitSec);
-    running = false;
-    phase = 'set';
+  function resetInProgressSet(): void {
     stepIndex = 0;
-    setBlasts = [];
-    middleDurationSec = 0;
-    render();
-    await delay(800);
-    await speakCallout('calibrateComplete');
-    await runCurrentSet();
-  }
-
-  async function runCurrentSet(): Promise<void> {
-    const set = SET_GROUPS[setIndex];
-    const steps = guidedStepsForSet(set);
     setBlasts = [];
     setAudio = [];
     middleDurationSec = 0;
-
-    for (let i = 0; i < steps.length; i++) {
-      if (abortSession) return;
-      stepIndex = i;
-      const isClosing = steps[i].type === 'tekiah' && i === steps.length - 1 && steps.length > 1;
-      const blast = await runGuidedBlast(steps[i], middleDurationSec, isClosing);
-      setBlasts.push(blast);
-      middleDurationSec += middleContribution(blast.type, blast.totalDurationSec);
-    }
-
-    const classified = [...setBlasts];
-    const scored = scoreRecording(classified, unitSec, set.pattern);
-    lastAnalysis = buildGuidedSetAnalysis(classified, scored);
-
-    saveSession({
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      stepId: set.id,
-      passed: scored.passed,
-      tekiahRatio: scored.tekiahRatio,
-      issues: scored.issues,
-      unitDurationSec: unitSec,
-      scoringRegime: 'per-tekiah-mb',
-    });
-
-    running = false;
+    lastAnalysis = null;
     currentTiming = null;
-    options.onBusy?.(false);
-    phase = 'set_review';
+  }
+
+  async function requestRedoSet(): Promise<void> {
+    if (abortSession || !mounted) return;
+    if (phase !== 'calibration' && phase !== 'set' && phase !== 'set_review') return;
+    const fromReview = phase === 'set_review';
+    setGeneration += 1;
+    cancelCurrentBlast?.();
+    running = false;
+    resetInProgressSet();
+    if (fromReview) {
+      phase = 'set';
+      options.onBusy?.(true);
+    }
     render();
+    if (!fromReview) return;
+    const token = ++launchToken;
+    await delay(400);
+    if (abortSession || !mounted || token !== launchToken) return;
+    await runCurrentSet();
+  }
+
+  async function runCalibration(): Promise<void> {
+    while (!abortSession && mounted) {
+      const runId = setGeneration;
+      const steps = guidedStepsForSet(CALIBRATION_SET);
+      const blasts: ClassifiedBlast[] = [];
+      middleDurationSec = 0;
+      let discarded = false;
+
+      for (let i = 0; i < steps.length; i++) {
+        if (abortSession || !mounted) return;
+        if (runId !== setGeneration) {
+          discarded = true;
+          break;
+        }
+        stepIndex = i;
+        const blast = await runGuidedBlast(steps[i], middleDurationSec, i === steps.length - 1);
+        if (!shouldCommitBlast({ runId, activeRunId: setGeneration, aborted: abortSession })) {
+          discarded = true;
+          break;
+        }
+        blasts.push(blast);
+        middleDurationSec += middleContribution(blast.type, blast.totalDurationSec);
+      }
+
+      if (abortSession || !mounted) return;
+      if (discarded || runId !== setGeneration) continue;
+
+      unitSec = inferUnitFromBlasts(blasts, unitSec);
+      setUnitDuration(unitSec);
+      running = false;
+      phase = 'set';
+      resetInProgressSet();
+      render();
+      await delay(800);
+      if (abortSession || !mounted) return;
+      if (runId !== setGeneration) {
+        await runCurrentSet();
+        return;
+      }
+      await speakCallout('calibrateComplete');
+      if (abortSession || !mounted) return;
+      if (runId !== setGeneration) {
+        await runCurrentSet();
+        return;
+      }
+      await runCurrentSet();
+      return;
+    }
+  }
+
+  async function runCurrentSet(): Promise<void> {
+    if (setLoopActive) return;
+    setLoopActive = true;
+    try {
+      await runCurrentSetLoop();
+    } finally {
+      setLoopActive = false;
+    }
+  }
+
+  async function runCurrentSetLoop(): Promise<void> {
+    while (!abortSession && mounted) {
+      const runId = setGeneration;
+      const set = SET_GROUPS[setIndex];
+      const steps = guidedStepsForSet(set);
+      resetInProgressSet();
+      let discarded = false;
+
+      for (let i = 0; i < steps.length; i++) {
+        if (abortSession || !mounted) return;
+        if (runId !== setGeneration) {
+          discarded = true;
+          break;
+        }
+        stepIndex = i;
+        const isClosing = steps[i].type === 'tekiah' && i === steps.length - 1 && steps.length > 1;
+        const blast = await runGuidedBlast(steps[i], middleDurationSec, isClosing);
+        if (!shouldCommitBlast({ runId, activeRunId: setGeneration, aborted: abortSession })) {
+          discarded = true;
+          break;
+        }
+        setBlasts.push(blast);
+        middleDurationSec += middleContribution(blast.type, blast.totalDurationSec);
+      }
+
+      if (abortSession || !mounted) return;
+      if (discarded || runId !== setGeneration) continue;
+
+      const classified = [...setBlasts];
+      const scored = scoreRecording(classified, unitSec, set.pattern);
+      lastAnalysis = buildGuidedSetAnalysis(classified, scored);
+
+      saveSession({
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        stepId: set.id,
+        passed: scored.passed,
+        tekiahRatio: scored.tekiahRatio,
+        issues: scored.issues,
+        unitDurationSec: unitSec,
+        scoringRegime: 'per-tekiah-mb',
+      });
+
+      running = false;
+      currentTiming = null;
+      options.onBusy?.(false);
+      phase = 'set_review';
+      render();
+      return;
+    }
   }
 
   async function runGuidedBlast(
@@ -415,6 +509,8 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     middleSoFar: number,
     isClosingTekiah: boolean,
   ): Promise<ClassifiedBlast> {
+    const runId = setGeneration;
+    const empty: ClassifiedBlast = { type: step.type, segments: [], totalDurationSec: 0 };
     running = false;
     currentTiming = null;
     render();
@@ -425,10 +521,15 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       await delay(350);
     }
 
-    if (abortSession || !mounted || !session.isOpen()) {
+    if (
+      abortSession ||
+      !mounted ||
+      !session.isOpen() ||
+      !shouldCommitBlast({ runId, activeRunId: setGeneration, aborted: abortSession })
+    ) {
       running = false;
       options.onBusy?.(false);
-      return { type: step.type, segments: [], totalDurationSec: 0 };
+      return empty;
     }
 
     running = true;
@@ -454,11 +555,15 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
         currentTiming = liveTimingState(step.type, tick.soundingSec, timingCtx, tick.phase);
       },
     });
+    cancelCurrentBlast = cancel;
 
     let intervalId: ReturnType<typeof setInterval> | undefined;
     const abortWatcher = new Promise<void>((resolve) => {
       intervalId = setInterval(() => {
-        if (abortSession) {
+        if (
+          abortSession ||
+          !shouldCommitBlast({ runId, activeRunId: setGeneration, aborted: abortSession })
+        ) {
           cancel();
           if (intervalId !== undefined) clearInterval(intervalId);
           intervalId = undefined;
@@ -476,12 +581,14 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       if (raced.kind === 'stop') stopResult = raced.r;
     } finally {
       if (intervalId !== undefined) clearInterval(intervalId);
+      if (cancelCurrentBlast === cancel) cancelCurrentBlast = null;
     }
 
     const recording = session.endCapture();
-    const soundingSec = abortSession || !stopResult ? 0 : stopResult.soundingSec;
+    const keep = shouldCommitBlast({ runId, activeRunId: setGeneration, aborted: abortSession });
+    const soundingSec = !keep || !stopResult ? 0 : stopResult.soundingSec;
     const scoredRecording = { ...recording, durationSec: soundingSec };
-    if (isDiagnosticsEnabled() && recording.samples.length > 0) {
+    if (keep && isDiagnosticsEnabled() && recording.samples.length > 0) {
       setAudio.push({
         type: step.type,
         samples: recording.samples,
@@ -496,8 +603,14 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
       soundingSec > 0.1 ? 'sounding' : latestTickPhase,
     );
     render();
+    if (!shouldCommitBlast({ runId, activeRunId: setGeneration, aborted: abortSession })) {
+      return empty;
+    }
     await delay(450);
 
+    if (!shouldCommitBlast({ runId, activeRunId: setGeneration, aborted: abortSession })) {
+      return empty;
+    }
     return analyzeSingleBlast(scoredRecording, unitSec, step.type);
   }
 
@@ -508,7 +621,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     isClosingTekiah: boolean,
   ) {
     const band = expectedDurationForType(type, unitSec, pattern, middleSoFar, isClosingTekiah);
-    return { silenceMs: SILENCE_MS[type], maxDurationSec: band.safetyAutoStopSec };
+    return autoStopOptionsForBlast(type, band, SILENCE_MS[type]);
   }
 
   function middleContribution(type: BlastType, durationSec: number): number {
@@ -532,7 +645,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     lastAnalysis = null;
     options.onBusy?.(true);
     render();
+    const token = ++launchToken;
     await delay(600);
+    if (abortSession || !mounted || token !== launchToken) return;
     await runCurrentSet();
   }
 
