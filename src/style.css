@@ -1030,9 +1030,21 @@
     margin: 0.55rem 0 0;
   }
 
+  .illumination-credit {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+    margin: 0.85rem auto 0;
+    max-width: 36rem;
+    text-wrap: pretty;
+  }
+
   .illumination-actions {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
     margin-top: 0.8rem;
   }
 

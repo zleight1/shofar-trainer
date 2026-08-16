@@ -51,7 +51,17 @@ export const he: MessageCatalog = {
     'רישום חזותי של הסדר. כל פס הוא קול — הצורה לפי סוג הקול, הצבע לפי החלק, והרוחב לפי האורך.',
   illuminationStats: (p) => `${p.passed} מתוך ${p.total} סטים עברו`,
   illuminationSave: 'שמור תמונה',
-  illuminationAria: (p) => `רישום של ${p.kolos} קולות. ${p.passed} מתוך ${p.total} סטים עברו.`,
+  illuminationShare: 'שיתוף',
+  illuminationCredit:
+    'מבוסס על יצירתו המקורית של אברהם לוונטל. הוא יצר את המקור — זה רק רישום של הסדר שלכם באותה צורה.',
+  illuminationCreditLink: 'לאתר kabbalahart.com',
+  illuminationCreditLine: 'בהשראת אברהם לוונטל',
+  illuminationCreditUrlLabel: 'גלריית צפת לאמנות מיסטית · kabbalahart.com',
+  illuminationShareTitle: 'מאה קולות השופר',
+  illuminationShareText:
+    'רישום חזותי של סדר ראש השנה שלי, מבוסס על יצירתו המקורית של אברהם לוונטל. https://www.kabbalahart.com/',
+  illuminationAria: (p) =>
+    `רישום של ${p.kolos} קולות. ${p.passed} מתוך ${p.total} סטים עברו. מבוסס על יצירתו המקורית של אברהם לוונטל, kabbalahart.com.`,
   calibrateCompleteSpeech: 'הכיול הסתיים. מתחילים את השלושים בישיבה.',
   blow: (p) => `תקעו: ${p.callout}`,
   listen: 'הקשיבו…',

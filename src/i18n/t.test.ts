@@ -40,6 +40,12 @@ describe('catalog', () => {
     expect(catalog('he').illuminationTitle.length).toBeGreaterThan(0);
     expect(catalog('en').illuminationSave.length).toBeGreaterThan(0);
     expect(catalog('he').illuminationSave.length).toBeGreaterThan(0);
+    expect(catalog('en').illuminationShare.length).toBeGreaterThan(0);
+    expect(catalog('he').illuminationShare.length).toBeGreaterThan(0);
+    expect(catalog('en').illuminationCredit).toContain('Avraham Loewenthal');
+    expect(catalog('he').illuminationCredit).toContain('אברהם לוונטל');
+    expect(catalog('en').illuminationShareText).toContain('https://www.kabbalahart.com/');
+    expect(catalog('he').illuminationShareText).toContain('https://www.kabbalahart.com/');
   });
 
   it('includes live-session copy in both catalogs', () => {

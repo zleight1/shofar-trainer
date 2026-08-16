@@ -160,7 +160,13 @@ describe('buildSessionKols', () => {
 });
 
 describe('illuminationSvg', () => {
-  const copy = { title: 'The 100', description: 'Illumination of 100 kolos.' };
+  const copy = {
+    title: 'The 100',
+    description: 'Illumination of 100 kolos.',
+    creditLine: 'Inspired by Avraham Loewenthal',
+    creditUrlLabel: 'Tzfat Gallery of Mystical Art · kabbalahart.com',
+    dir: 'ltr' as const,
+  };
 
   it('draws one mirrored band per kol with a central spine', () => {
     const kols = buildSessionKols(fullSederTakes());
@@ -178,6 +184,24 @@ describe('illuminationSvg', () => {
     expect(svg).toContain('data-section="sitting"');
     expect(svg).toContain('data-section="afterMusaf"');
     expect(svg).toContain(copy.title);
+    expect(svg).toContain('Avraham Loewenthal');
+    expect(svg).toContain('kabbalahart.com');
+    expect(svg).toContain('class="credit"');
+    expect(svg).toContain('width="280"');
+  });
+
+  it('writes Hebrew credit under the artwork', () => {
+    const kols = buildSessionKols(fullSederTakes());
+    const svg = illuminationSvg(kols, {
+      title: 'המאה',
+      description: 'רישום של 100 קולות.',
+      creditLine: 'בהשראת אברהם לוונטל',
+      creditUrlLabel: 'גלריית צפת לאמנות מיסטית · kabbalahart.com',
+      dir: 'rtl',
+    });
+    expect(svg).toContain('בהשראת אברהם לוונטל');
+    expect(svg).toContain('direction="rtl"');
+    expect(svg).toContain('kabbalahart.com');
   });
 
   it('is deterministic for the same seder', () => {

@@ -68,8 +68,17 @@ export const en = {
   illuminationStats: (p: { passed: number; total: number }) =>
     `${p.passed} of ${p.total} sets passed`,
   illuminationSave: 'Save image',
+  illuminationShare: 'Share',
+  illuminationCredit:
+    'Based on the original artwork of Avraham Loewenthal. He created the original — this is just a record of your seder in that form.',
+  illuminationCreditLink: 'Visit kabbalahart.com',
+  illuminationCreditLine: 'Inspired by Avraham Loewenthal',
+  illuminationCreditUrlLabel: 'Tzfat Gallery of Mystical Art · kabbalahart.com',
+  illuminationShareTitle: 'The 100 shofar kolos',
+  illuminationShareText:
+    'A visual record of my Rosh Hashana seder, based on the original artwork of Avraham Loewenthal. https://www.kabbalahart.com/',
   illuminationAria: (p: { kolos: number; passed: number; total: number }) =>
-    `Illumination of ${p.kolos} kolos. ${p.passed} of ${p.total} sets passed.`,
+    `Illumination of ${p.kolos} kolos. ${p.passed} of ${p.total} sets passed. Based on the original artwork of Avraham Loewenthal, kabbalahart.com.`,
   calibrateCompleteSpeech: 'Calibration complete. Starting the sitting 30.',
   blow: (p: { callout: string }) => `Blow: ${p.callout}`,
   listen: 'Listen…',
