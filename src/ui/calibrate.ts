@@ -4,7 +4,6 @@ import { catalog } from '../i18n/t';
 import type { Locale } from '../i18n/locale';
 import { getLocale } from '../i18n/locale';
 import { getUnitDuration, setUnitDuration } from '../store/sessions';
-import { renderAppHeader } from './chrome';
 import { button, el } from './components';
 import { speakCallout, unlockCallouts } from '../audio/callout-player';
 import { attachLiveWaveform } from './live-waveform';
@@ -26,10 +25,6 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
   const container = el('div', 'calibrate-view');
   root.appendChild(container);
 
-  function busy(): boolean {
-    return recording || preparing;
-  }
-
   function detachLive(): void {
     stopLive?.();
     stopLive = null;
@@ -40,20 +35,15 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
     container.innerHTML = '';
     const locale = getLocale();
     const c = catalog(locale);
-    renderAppHeader(container, {
-      title: c.calibrateTitle,
-      locale,
-      onLocale: options.onLocale,
-      localeDisabled: busy(),
-    });
     container.appendChild(el('p', 'instructions', c.calibrateIntro));
 
+    const stage = el('div', 'live-stage');
     const canvas = el('canvas', recording ? 'waveform live' : 'waveform');
     canvas.height = 180;
-    container.appendChild(canvas);
+    stage.appendChild(canvas);
 
     if (recording) {
-      container.appendChild(el('p', 'live-hint', c.liveHint));
+      stage.appendChild(el('p', 'live-hint', c.liveHint));
     }
 
     const status = el('div', 'calibrate-status');
@@ -64,7 +54,8 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
     } else if (detectedUnit) {
       status.appendChild(el('p', 'unit-display', c.currentUnit({ ms: Math.round(detectedUnit * 1000) })));
     }
-    container.appendChild(status);
+    stage.appendChild(status);
+    container.appendChild(stage);
 
     const controls = el('div', 'controls');
     const recBtn = button(
@@ -86,6 +77,7 @@ export function mountCalibrate(root: HTMLElement, options: CalibrateMountOptions
     });
     recBtn.disabled = preparing;
     saveBtn.disabled = !detectedUnit || recording || preparing;
+    recBtn.classList.add('btn-block');
     backBtn.addEventListener('click', () => {
       detachLive();
       if (recording && recorder) {

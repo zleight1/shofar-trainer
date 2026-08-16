@@ -1,8 +1,13 @@
 import { peakFromTimeDomain } from './capture';
+import type { BlastType } from '../halacha/types';
 
 export interface AutoStopOptions {
   soundThreshold?: number;
+  soundOnThreshold?: number;
+  soundOffThreshold?: number;
   silenceMs?: number;
+  earlySilenceMs?: number;
+  holdMinSec?: number;
   maxDurationSec?: number;
   minSoundMs?: number;
   onTick?: (tick: AutoStopTick) => void;
@@ -24,6 +29,52 @@ export interface AutoStopResult {
   soundingSec: number;
 }
 
+export interface AutoStopState {
+  soundStartedAt: number | null;
+  silenceStartedAt: number | null;
+  candidateStartedAt: number | null;
+}
+
+export interface AutoStopAdvance {
+  state: AutoStopState;
+  phase: AutoStopTick['phase'];
+  elapsedSec: number;
+  soundingSec: number;
+  peak: number;
+  silenceMs: number;
+  done: AutoStopReason | null;
+}
+
+export interface DurationBandSlice {
+  minSec: number;
+  safetyAutoStopSec: number;
+}
+
+const DEFAULTS = {
+  soundThreshold: 0.035,
+  silenceMs: 550,
+  maxDurationSec: 18,
+  minSoundMs: 80,
+};
+
+const TEKIAH_HOLD = {
+  minSoundMs: 250,
+  soundOnThreshold: 0.05,
+  soundOffThreshold: 0.02,
+  silenceMs: 1100,
+  earlySilenceMs: 1800,
+} as const;
+
+interface ResolvedAutoStopOptions {
+  soundOnThreshold: number;
+  soundOffThreshold: number;
+  silenceMs: number;
+  earlySilenceMs: number;
+  holdMinSec: number;
+  maxDurationSec: number;
+  minSoundMs: number;
+}
+
 export function soundingExclusiveSec(
   now: number,
   soundStartedAt: number | null,
@@ -34,22 +85,122 @@ export function soundingExclusiveSec(
   return Math.max(0, (end - soundStartedAt) / 1000);
 }
 
-const DEFAULTS = {
-  soundThreshold: 0.035,
-  silenceMs: 550,
-  maxDurationSec: 18,
-  minSoundMs: 80,
-};
+export function createAutoStopState(): AutoStopState {
+  return {
+    soundStartedAt: null,
+    silenceStartedAt: null,
+    candidateStartedAt: null,
+  };
+}
+
+export function autoStopOptionsForBlast(
+  type: BlastType,
+  band: DurationBandSlice,
+  silenceMs: number,
+): AutoStopOptions {
+  switch (type) {
+    case 'tekiah':
+    case 'tekiah_gedolah':
+      return {
+        ...TEKIAH_HOLD,
+        holdMinSec: band.minSec,
+        maxDurationSec: band.safetyAutoStopSec,
+      };
+    case 'shevarim':
+    case 'teruah':
+    case 'shevarim_teruah':
+      return {
+        silenceMs,
+        maxDurationSec: band.safetyAutoStopSec,
+      };
+    default: {
+      const _exhaustive: never = type;
+      return _exhaustive;
+    }
+  }
+}
+
+function resolveOptions(options: AutoStopOptions): ResolvedAutoStopOptions {
+  const fallback = options.soundThreshold ?? DEFAULTS.soundThreshold;
+  const silenceMs = options.silenceMs ?? DEFAULTS.silenceMs;
+  return {
+    soundOnThreshold: options.soundOnThreshold ?? fallback,
+    soundOffThreshold: options.soundOffThreshold ?? fallback,
+    silenceMs,
+    earlySilenceMs: options.earlySilenceMs ?? silenceMs,
+    holdMinSec: options.holdMinSec ?? 0,
+    maxDurationSec: options.maxDurationSec ?? DEFAULTS.maxDurationSec,
+    minSoundMs: options.minSoundMs ?? DEFAULTS.minSoundMs,
+  };
+}
+
+export function advanceAutoStop(
+  state: AutoStopState,
+  now: number,
+  startedAt: number,
+  peak: number,
+  options: AutoStopOptions = {},
+): AutoStopAdvance {
+  const opts = resolveOptions(options);
+  const next: AutoStopState = { ...state };
+  const elapsedSec = (now - startedAt) / 1000;
+
+  if (next.soundStartedAt === null) {
+    if (peak >= opts.soundOnThreshold) {
+      if (next.candidateStartedAt === null) next.candidateStartedAt = now;
+      if (now - next.candidateStartedAt >= opts.minSoundMs) {
+        next.soundStartedAt = next.candidateStartedAt;
+        next.candidateStartedAt = null;
+        next.silenceStartedAt = null;
+      }
+    } else {
+      next.candidateStartedAt = null;
+    }
+  } else if (peak >= opts.soundOffThreshold) {
+    next.silenceStartedAt = null;
+  } else if (next.silenceStartedAt === null) {
+    next.silenceStartedAt = now;
+  }
+
+  const displayStart = next.soundStartedAt ?? next.candidateStartedAt;
+  const soundingSec = soundingExclusiveSec(now, displayStart, next.silenceStartedAt);
+  const silenceMs = next.silenceStartedAt ? now - next.silenceStartedAt : 0;
+  const committedSoundingSec = soundingExclusiveSec(
+    now,
+    next.soundStartedAt,
+    next.silenceStartedAt,
+  );
+
+  let phase: AutoStopTick['phase'] = 'waiting_for_sound';
+  if (next.soundStartedAt !== null && next.silenceStartedAt !== null && silenceMs > 0) {
+    phase = 'trailing_silence';
+  } else if (next.soundStartedAt !== null || next.candidateStartedAt !== null) {
+    phase = 'sounding';
+  }
+
+  let done: AutoStopReason | null = null;
+  if (elapsedSec >= opts.maxDurationSec) {
+    done = 'max_duration';
+  } else if (next.soundStartedAt !== null) {
+    const requiredSilenceMs =
+      opts.holdMinSec > 0 && committedSoundingSec < opts.holdMinSec
+        ? opts.earlySilenceMs
+        : opts.silenceMs;
+    if (silenceMs >= requiredSilenceMs) {
+      done = 'silence';
+    }
+  }
+
+  return { state: next, phase, elapsedSec, soundingSec, peak, silenceMs, done };
+}
 
 export function waitForBlastEnd(
   getAnalyser: () => AnalyserNode | null,
   options: AutoStopOptions = {},
 ): { promise: Promise<AutoStopResult>; cancel: () => void } {
-  const opts = { ...DEFAULTS, ...options };
   let cancelled = false;
   let rafId = 0;
-  let soundStartedAt: number | null = null;
-  let silenceStartedAt: number | null = null;
+  let state = createAutoStopState();
   const startedAt = performance.now();
 
   const cancel = () => {
@@ -66,15 +217,16 @@ export function waitForBlastEnd(
         resolve({
           reason: 'cancelled',
           elapsedSec: (t - startedAt) / 1000,
-          soundingSec: soundingExclusiveSec(t, soundStartedAt, silenceStartedAt),
+          soundingSec: soundingExclusiveSec(
+            t,
+            state.soundStartedAt ?? state.candidateStartedAt,
+            state.silenceStartedAt,
+          ),
         });
         return;
       }
 
       const analyser = getAnalyser();
-      const now = performance.now();
-      const elapsedSec = (now - startedAt) / 1000;
-
       if (!analyser) {
         rafId = requestAnimationFrame(tick);
         return;
@@ -82,36 +234,22 @@ export function waitForBlastEnd(
 
       analyser.getFloatTimeDomainData(buffer);
       const peak = peakFromTimeDomain(buffer);
-      const heard = peak >= opts.soundThreshold;
+      const advance = advanceAutoStop(state, performance.now(), startedAt, peak, options);
+      state = advance.state;
+      options.onTick?.({
+        phase: advance.phase,
+        elapsedSec: advance.elapsedSec,
+        soundingSec: advance.soundingSec,
+        peak: advance.peak,
+        silenceMs: advance.silenceMs,
+      });
 
-      if (heard) {
-        if (soundStartedAt === null) soundStartedAt = now;
-        silenceStartedAt = null;
-      } else if (soundStartedAt !== null) {
-        if (silenceStartedAt === null) silenceStartedAt = now;
-      }
-
-      const silenceMs = silenceStartedAt ? now - silenceStartedAt : 0;
-      const soundMs = soundStartedAt ? now - soundStartedAt : 0;
-      const soundingSec = soundingExclusiveSec(now, soundStartedAt, silenceStartedAt);
-
-      let phase: AutoStopTick['phase'] = 'waiting_for_sound';
-      if (soundStartedAt !== null && !heard && silenceMs > 0) phase = 'trailing_silence';
-      else if (soundStartedAt !== null) phase = 'sounding';
-
-      opts.onTick?.({ phase, elapsedSec, soundingSec, peak, silenceMs });
-
-      if (elapsedSec >= opts.maxDurationSec) {
-        resolve({ reason: 'max_duration', elapsedSec, soundingSec });
-        return;
-      }
-
-      if (
-        soundStartedAt !== null &&
-        soundMs >= opts.minSoundMs &&
-        silenceMs >= opts.silenceMs
-      ) {
-        resolve({ reason: 'silence', elapsedSec, soundingSec });
+      if (advance.done === 'max_duration' || advance.done === 'silence') {
+        resolve({
+          reason: advance.done,
+          elapsedSec: advance.elapsedSec,
+          soundingSec: advance.soundingSec,
+        });
         return;
       }
 

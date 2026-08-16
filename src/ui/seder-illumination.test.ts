@@ -8,6 +8,7 @@ import {
   expandClassified,
   kolosFromSet,
   passedSetCount,
+  upsertSetTake,
   type SetTake,
 } from './seder-illumination-model';
 
@@ -212,5 +213,24 @@ describe('illuminationSvg', () => {
       sectionSwatch('afterMusaf'),
     ]);
     expect(colors.size).toBe(5);
+  });
+});
+
+describe('upsertSetTake', () => {
+  it('replaces a redone set instead of appending a second take', () => {
+    const first = SET_GROUPS[0];
+    const second = SET_GROUPS[1];
+    const passed = takeFor(first, { passed: true });
+    const failed = takeFor(first, { passed: false });
+    const other = takeFor(second, { passed: true });
+
+    const afterFirst = upsertSetTake([], passed);
+    expect(afterFirst).toEqual([passed]);
+
+    const afterRedo = upsertSetTake(afterFirst, failed);
+    expect(afterRedo).toEqual([failed]);
+
+    const afterNext = upsertSetTake(afterRedo, other);
+    expect(afterNext).toEqual([failed, other]);
   });
 });

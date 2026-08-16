@@ -112,6 +112,17 @@ export function passedSetCount(takes: SetTake[]): { passed: number; total: numbe
   };
 }
 
+/** Replace a set's take on redo; append when the set is new to the session. */
+export function upsertSetTake(takes: SetTake[], take: SetTake): SetTake[] {
+  const existing = takes.findIndex((t) => t.set.id === take.set.id);
+  if (existing >= 0) {
+    const next = takes.slice();
+    next[existing] = take;
+    return next;
+  }
+  return [...takes, take];
+}
+
 function splitShevarimTeruah(blast: ClassifiedBlast, unitSec: number): ClassifiedBlast[] {
   const parts = partitionShevarimTeruah(blast.segments, unitSec);
   let shevarim = parts.shevarim;
