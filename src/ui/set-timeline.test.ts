@@ -110,4 +110,20 @@ describe('buildSetTimelineModel', () => {
     expect(model[0].status).toBe('warn');
     expect(model[0].notes.map((n) => n.kind)).toEqual(['ok', 'short', 'ok']);
   });
+
+  it('keeps twelve-plus shevarim-teruah notes on the combo blast', () => {
+    const combo = blast('shevarim_teruah', [
+      0.3, 0.3, 0.3,
+      ...Array.from({ length: 10 }, () => 0.08),
+    ]);
+    const model = buildSetTimelineModel(
+      [blast('tekiah', [3.4]), combo, blast('tekiah', [4.1])],
+      [{ severity: 'error', code: 'shevarim_count', params: { expected: 3, detected: 0 } }],
+      0.144,
+      'tst',
+    );
+    expect(model[1].type).toBe('shevarim_teruah');
+    expect(model[1].notes.length).toBeGreaterThanOrEqual(12);
+    expect(model[1].flexGrow).toBeGreaterThan(0);
+  });
 });
