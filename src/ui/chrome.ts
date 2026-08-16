@@ -7,9 +7,10 @@ import { button, el } from './components';
 export const APP_TABS = ['practice', 'calibrate', 'seder', 'history', 'sources'] as const;
 export type AppTab = (typeof APP_TABS)[number];
 
-const TAB_PATHS: Record<AppTab, string> = {
+/** Practice is a ram: a shofar is a ram's horn. Horn curl + eye are evenodd holes. */
+export const TAB_ICON_PATHS: Record<AppTab, string> = {
   practice:
-    'M5 18c0-5.5 3.8-10.2 9.4-13.2L19 2.5 20.4 4.2 15.2 7.6C10.8 10.8 8.2 14.4 8.2 18c0 1.4.4 2.4 1.1 3H6.2C5.4 20.2 5 19.2 5 18zm12.6-13.4c1.4-.2 2.6.6 2.8 1.8.2 1.2-.6 2.2-1.8 2.4-1.2.2-2.3-.6-2.5-1.8-.2-1.1.6-2.2 1.5-2.4z',
+    'M10.4 8.6C7.6 6.6 8.2 2.4 11.8 1.6c3.6-.8 6.6 1.6 6.6 4.8 0 1.6-.8 3-2 3.8 1.4.3 2.6 1 3.4 2.1.9 1.4.6 3.2-.6 4.3-1 .9-2.4 1.2-3.6.8l-.5 1.4c-.3.9-1.3 1.4-2.2 1.2l-3.4-.7C8.2 19.7 6 20.8 4.4 22.4c.3-2.5 1.4-4.8 3.2-6.6 1.5-1.5 3.4-2.5 5.4-2.8-.5-1.1-1.5-2.1-2.6-3.4zM12.4 4.6c-1.5.3-2.3 1.6-2 2.8.7-.1 1.5 0 2.3.3 1.1.4 2 1.2 2.6 2.2 1-.7 1.5-2 1.3-3.1-.3-1.4-2-2.5-4.2-2.2zM16.7 12.4a.95.95 0 1 1-1.9 0 .95.95 0 0 1 1.9 0z',
   calibrate:
     'M7 4v16M12 8v12M17 6v14M4 14h6M9 10h6M14 16h6',
   seder: 'M4 6h16M4 12h16M4 18h10',
@@ -142,9 +143,10 @@ function tabIcon(tab: AppTab): SVGSVGElement {
   svg.setAttribute('aria-hidden', 'true');
   svg.classList.add('tab-icon');
   const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  shape.setAttribute('d', TAB_PATHS[tab]);
+  shape.setAttribute('d', TAB_ICON_PATHS[tab]);
   const filled = tab === 'practice';
   shape.setAttribute('fill', filled ? 'currentColor' : 'none');
+  shape.setAttribute('fill-rule', filled ? 'evenodd' : 'nonzero');
   shape.setAttribute('stroke', 'currentColor');
   shape.setAttribute('stroke-width', filled ? '0' : '1.75');
   shape.setAttribute('stroke-linecap', 'round');
