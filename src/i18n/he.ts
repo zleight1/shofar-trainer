@@ -25,6 +25,7 @@ export const he: MessageCatalog = {
   exit: 'יציאה',
   finish: 'סיום',
   nextSet: 'סט הבא',
+  redoSet: 'חזור על הסט',
   stopSession: 'עצור תרגול',
   startGuided: 'התחל תרגול מודרך',
   practiceTitle: 'תרגול מודרך',

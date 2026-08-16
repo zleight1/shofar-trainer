@@ -27,6 +27,7 @@ export const en = {
   exit: 'Exit',
   finish: 'Finish',
   nextSet: 'Next set',
+  redoSet: 'Redo set',
   stopSession: 'Stop session',
   startGuided: 'Start guided session',
   practiceTitle: 'Guided Practice',
