@@ -871,6 +871,10 @@
     margin: 0.35rem 0 0;
   }
 
+  .live-session-hint {
+    margin-block-end: 2rem;
+  }
+
   .diagnostics-panel h3 {
     margin: 0 0 0.5rem;
     font-size: 1rem;
@@ -1190,6 +1194,10 @@
     .practice-view .disclaimer {
       margin-bottom: 0.45rem;
       font-size: 0.85rem;
+    }
+
+    .practice-view .live-session-hint {
+      margin-block-end: 1rem;
     }
 
     .calibrate-view .instructions {
