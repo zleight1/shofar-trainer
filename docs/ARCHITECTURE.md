@@ -6,6 +6,7 @@
 Browser UI (vanilla TS)
   ├── Calibrate → analyzeCalibration → setUnitDuration
   ├── Practice  → AudioRecorder → analyzeRecording → scoreRecording
+  ├── Seder     → SET_GROUPS overview (100 kolos by section)
   └── History   → localStorage sessions
 
 Audio pipeline

@@ -6,6 +6,7 @@ export const he: MessageCatalog = {
   lastUnit: (p) => `יחידה אחרונה: ${p.ms} מ״ש`,
   navPractice: 'תרגול',
   navCalibrate: 'כיול',
+  navSeder: 'סדר',
   navHistory: 'היסטוריה',
   navSources: 'מקורות',
   navMain: 'ניווט ראשי',
@@ -92,6 +93,28 @@ export const he: MessageCatalog = {
   timelineNotes: (p) => `${p.count} מתוך ${p.expected}`,
   speechHeMissing:
     'דיבור בעברית דורש קול מערכת עברי. הקריאות על המסך נשארות בעברית.',
+  sederTitle: 'סקירת הסדר',
+  sederEyebrow: 'ראש השנה',
+  sederIntro:
+    'סדר ראש השנה המלא של 100 קולות, ועוד תשרי"ת הכיול שבאה קודם ואינה נספרת.',
+  sederTotalLine: (p) => `${p.n} קולות`,
+  sederRoundTitle: 'כל עשרה',
+  sederRoundBlurb:
+    'תשרי"ת (4) + תש"ת (3) + תר"ת (3). תשרי"ת נספרת כארבעה גם כששברים-תרועה בנשימה אחת.',
+  sederNotesTitle: 'הקולות',
+  sederNoteTekiah:
+    'תקיעה אחת ארוכה. בתשרי"ת ≥ 18 יחידות תרועה וגם ≥ האמצע של אותו סט. בתש"ת ובתר"ת ≥ 9 יחידות וגם ≥ האמצע. אין מקסימום.',
+  sederNoteShevarim: 'שלושה תווים. כל שבר חייב להיות קצר מ-9 יחידות. תווים עודפים הם אזהרה.',
+  sederNoteTeruah: 'לפחות תשעה תווים קצרים (יבבות). אין מקסימום.',
+  sederNoteGedolah:
+    'אותה רצפת ציון כמו תקיעה. האורך הנוסף הוא אימון בלבד — תקיעה גדולה קצרה אינה כשל בציון.',
+  sederWhenTitle: 'מתי',
+  sederKolos: (p) => `${p.n} קולות`,
+  sederRounds: (p) => (p.n === 1 ? 'סיבוב אחד' : `${p.n} סיבובים`),
+  sederEndsGedolah: 'התקיעה האחרונה היא תקיעה גדולה',
+  sederNotCounted: 'לא נספר ב-100',
+  sederBreathMark: 'נשימה',
+  sederPacingTitle: 'תרגול חי',
   sourcesTitle: 'מקורות',
   sourcesIntro: 'הטקסטים שהמאמן בודק לפיהם, וציטוטים ללימוד בלבד. זה לא פסק.',
   encodedLabel: 'מקודד בבדיקות',

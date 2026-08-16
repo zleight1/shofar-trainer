@@ -4,6 +4,7 @@ export const en = {
   lastUnit: (p: { ms: number }) => `Last unit: ${p.ms} ms`,
   navPractice: 'Practice',
   navCalibrate: 'Calibrate',
+  navSeder: 'Seder',
   navHistory: 'History',
   navSources: 'Sources',
   navMain: 'Main',
@@ -114,6 +115,29 @@ export const en = {
   timelineNotes: (p: { count: number; expected: number }) => `${p.count} of ${p.expected}`,
   speechHeMissing:
     'Spoken Hebrew needs a Hebrew system voice. On-screen callouts stay Hebrew.',
+  sederTitle: 'Seder overview',
+  sederEyebrow: 'Rosh Hashana',
+  sederIntro:
+    'The full order of 100 kolos, plus the calibration tashrat that comes first and is not counted.',
+  sederTotalLine: (p: { n: number }) => `${p.n} kolos`,
+  sederRoundTitle: 'Each round of 10',
+  sederRoundBlurb:
+    'Tashrat (4) + Tashat (3) + Tarat (3). Tashrat still counts as four when shevarim-teruah is one breath.',
+  sederNotesTitle: 'The notes',
+  sederNoteTekiah:
+    'One long blast. Tashrat ≥ 18 teruah units and ≥ that set’s middle. Tashat and Tarat ≥ 9 units and ≥ that set’s middle. No maximum.',
+  sederNoteShevarim:
+    'Three notes. Each shever must be shorter than 9 units. Extra notes warn.',
+  sederNoteTeruah: 'At least nine short notes (yevavot). No maximum.',
+  sederNoteGedolah:
+    'Same scoring floor as a tekiah. Extra length is coaching only — a short gedolah is not a scoring fail.',
+  sederWhenTitle: 'When',
+  sederKolos: (p: { n: number }) => `${p.n} kolos`,
+  sederRounds: (p: { n: number }) => (p.n === 1 ? '1 round' : `${p.n} rounds`),
+  sederEndsGedolah: 'Last tekiah is Tekiah Gedolah',
+  sederNotCounted: 'Not in the 100',
+  sederBreathMark: 'breath',
+  sederPacingTitle: 'Live session',
   sourcesTitle: 'Sources',
   sourcesIntro:
     'Texts the trainer follows, plus study-only citations. This is not pesak.',

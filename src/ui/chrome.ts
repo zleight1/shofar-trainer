@@ -4,7 +4,7 @@ import { catalog } from '../i18n/t';
 import { isDiagnosticsEnabled, setDiagnosticsEnabled } from '../store/diagnostics';
 import { button, el } from './components';
 
-export const APP_TABS = ['practice', 'calibrate', 'history', 'sources'] as const;
+export const APP_TABS = ['practice', 'calibrate', 'seder', 'history', 'sources'] as const;
 export type AppTab = (typeof APP_TABS)[number];
 
 const TAB_PATHS: Record<AppTab, string> = {
@@ -12,6 +12,7 @@ const TAB_PATHS: Record<AppTab, string> = {
     'M5 18c0-5.5 3.8-10.2 9.4-13.2L19 2.5 20.4 4.2 15.2 7.6C10.8 10.8 8.2 14.4 8.2 18c0 1.4.4 2.4 1.1 3H6.2C5.4 20.2 5 19.2 5 18zm12.6-13.4c1.4-.2 2.6.6 2.8 1.8.2 1.2-.6 2.2-1.8 2.4-1.2.2-2.3-.6-2.5-1.8-.2-1.1.6-2.2 1.5-2.4z',
   calibrate:
     'M7 4v16M12 8v12M17 6v14M4 14h6M9 10h6M14 16h6',
+  seder: 'M4 6h16M4 12h16M4 18h10',
   history:
     'M12 4.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zm0 3v5l3.5 2',
   sources:
@@ -24,6 +25,8 @@ export function titleForView(view: AppTab, c: MessageCatalog): string {
       return c.practiceTitle;
     case 'calibrate':
       return c.calibrateTitle;
+    case 'seder':
+      return c.sederTitle;
     case 'history':
       return c.historyTitle;
     case 'sources':
@@ -41,6 +44,8 @@ export function tabLabel(view: AppTab, c: MessageCatalog): string {
       return c.navPractice;
     case 'calibrate':
       return c.navCalibrate;
+    case 'seder':
+      return c.navSeder;
     case 'history':
       return c.navHistory;
     case 'sources':
@@ -138,9 +143,10 @@ function tabIcon(tab: AppTab): SVGSVGElement {
   svg.classList.add('tab-icon');
   const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
   shape.setAttribute('d', TAB_PATHS[tab]);
-  shape.setAttribute('fill', tab === 'calibrate' || tab === 'history' || tab === 'sources' ? 'none' : 'currentColor');
+  const filled = tab === 'practice';
+  shape.setAttribute('fill', filled ? 'currentColor' : 'none');
   shape.setAttribute('stroke', 'currentColor');
-  shape.setAttribute('stroke-width', tab === 'practice' ? '0' : '1.75');
+  shape.setAttribute('stroke-width', filled ? '0' : '1.75');
   shape.setAttribute('stroke-linecap', 'round');
   shape.setAttribute('stroke-linejoin', 'round');
   svg.appendChild(shape);

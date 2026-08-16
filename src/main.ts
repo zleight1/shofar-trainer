@@ -11,6 +11,7 @@ import {
 } from './ui/chrome';
 import { mountHistory } from './ui/history';
 import { mountPractice } from './ui/practice';
+import { mountSederOverview } from './ui/seder-overview';
 import { mountSources } from './ui/sources';
 
 type View = AppTab;
@@ -127,6 +128,14 @@ function mountApp(): void {
           onDone: () => navigate('practice'),
           onLocale,
           onBusy,
+          onRefreshRegister,
+        }),
+      );
+    } else if (view === 'seder') {
+      unmount = bindUnmount(
+        mountSederOverview(content, {
+          onBack: () => navigate('practice'),
+          onLocale,
           onRefreshRegister,
         }),
       );

@@ -2,6 +2,7 @@ import { en, type MessageCatalog } from './en';
 import { he } from './he';
 import type { Locale } from './locale';
 import { getLocale } from './locale';
+import type { SederSection, SetGroup } from '../halacha/seder';
 import type { BlastType, ScoreIssue } from '../halacha/types';
 import type { LiveTimingState } from '../halacha/live-timing';
 
@@ -77,4 +78,45 @@ export function calloutForType(type: BlastType, locale: Locale = getLocale()): s
 
 export function blastLabel(type: BlastType, locale: Locale = getLocale()): string {
   return calloutForType(type, locale);
+}
+
+export function sectionLabel(section: SederSection, c: MessageCatalog): string {
+  switch (section) {
+    case 'calibration':
+      return c.setCalibration;
+    case 'sitting':
+      return c.sectionSitting;
+    case 'malchuyot':
+      return c.sectionMalchuyot;
+    case 'zichronot':
+      return c.sectionZichronot;
+    case 'shofarot':
+      return c.sectionShofarot;
+    case 'afterMusaf':
+      return c.sectionAfterMusaf;
+    default: {
+      const _exhaustive: never = section;
+      return _exhaustive;
+    }
+  }
+}
+
+export function patternLabel(
+  set: Pick<SetGroup, 'pattern' | 'closingGedolah'>,
+  c: MessageCatalog,
+): string {
+  switch (set.pattern) {
+    case 'tst':
+      return c.patternTst;
+    case 'tsh':
+      return c.patternTsh;
+    case 'tt':
+      return set.closingGedolah ? c.patternTtGedolah : c.patternTt;
+    case 'gedolah':
+      return c.setGedolah;
+    default: {
+      const _exhaustive: never = set.pattern;
+      return _exhaustive;
+    }
+  }
 }
