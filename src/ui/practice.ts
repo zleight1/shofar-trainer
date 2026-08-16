@@ -27,6 +27,8 @@ import { attachLiveWaveform } from './live-waveform';
 import { BLAST_ABBREV, renderSetTimeline } from './set-timeline';
 import { renderDiagnosticsPanel, type BlastAudioClip } from './diagnostics-panel';
 import type { DetailedAnalysisResult } from '../audio/analyze';
+import { buildSessionKols, type SetTake } from './seder-illumination-model';
+import { renderSederIllumination } from './seder-illumination';
 
 export interface PracticeMountOptions {
   onBack: () => void;
@@ -60,6 +62,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
   let abortSession = false;
   let running = false;
   let mounted = true;
+  let sessionTakes: SetTake[] = [];
 
   const container = el('div', 'practice-view');
   root.appendChild(container);
@@ -287,7 +290,9 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const locale = getLocale();
     const c = catalog(locale);
     renderDisclaimer(container, locale);
-    container.appendChild(el('p', '', c.sessionComplete));
+    container.appendChild(el('p', 'session-complete-kicker', c.sessionComplete));
+    const kols = buildSessionKols(sessionTakes);
+    renderSederIllumination(container, sessionTakes, kols, locale);
     const backBtn = button(c.backHome, 'btn primary');
     backBtn.addEventListener('click', options.onBack);
     container.appendChild(backBtn);
@@ -333,6 +338,7 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     setIndex = 0;
     stepIndex = 0;
     setBlasts = [];
+    sessionTakes = [];
     middleDurationSec = 0;
     phase = 'calibration';
     options.onBusy?.(true);
@@ -391,6 +397,13 @@ export function mountPractice(root: HTMLElement, options: PracticeMountOptions):
     const classified = [...setBlasts];
     const scored = scoreRecording(classified, unitSec, set.pattern);
     lastAnalysis = buildGuidedSetAnalysis(classified, scored);
+    sessionTakes.push({
+      set,
+      blasts: classified,
+      issues: scored.issues,
+      passed: scored.passed,
+      unitSec,
+    });
 
     saveSession({
       id: crypto.randomUUID(),
