@@ -33,6 +33,10 @@ export interface AutoStopState {
   soundStartedAt: number | null;
   silenceStartedAt: number | null;
   candidateStartedAt: number | null;
+  /** Running ambient peak while waiting. 0 means not yet observed. */
+  noiseFloor: number;
+  /** Loudest peak while this blast is sounding. */
+  blastPeak: number;
 }
 
 export interface AutoStopAdvance {
@@ -65,6 +69,21 @@ const TEKIAH_HOLD = {
   earlySilenceMs: 1800,
 } as const;
 
+/** Shofar is much louder than room noise. Gate on that gap, not a low absolute floor. */
+const LOUDNESS = {
+  /** Start when peak is this many times the learned ambient. ~14 dB. */
+  onRatio: 5,
+  /** End when peak is within this multiple of ambient. ~6 dB. */
+  offRatio: 2,
+  /** End when peak has dropped this far from the blast itself. ~11 dB. */
+  dropRatio: 0.28,
+  /** With no ambient sample yet, only a clearly loud peak may start a blast. */
+  absoluteBlast: 0.12,
+  noiseMin: 0.004,
+  noiseRise: 0.12,
+  noiseFall: 0.28,
+} as const;
+
 interface ResolvedAutoStopOptions {
   soundOnThreshold: number;
   soundOffThreshold: number;
@@ -90,7 +109,35 @@ export function createAutoStopState(): AutoStopState {
     soundStartedAt: null,
     silenceStartedAt: null,
     candidateStartedAt: null,
+    noiseFloor: 0,
+    blastPeak: 0,
   };
+}
+
+export function adaptNoiseFloor(floor: number, peak: number): number {
+  const sample = Math.max(peak, 0);
+  if (floor <= 0) return Math.max(sample, LOUDNESS.noiseMin);
+  if (sample < floor) {
+    return floor * (1 - LOUDNESS.noiseFall) + sample * LOUDNESS.noiseFall;
+  }
+  return floor * (1 - LOUDNESS.noiseRise) + sample * LOUDNESS.noiseRise;
+}
+
+export function loudnessOnThreshold(noiseFloor: number, soundOnThreshold: number): number {
+  if (noiseFloor <= 0) return Math.max(soundOnThreshold, LOUDNESS.absoluteBlast);
+  return Math.max(soundOnThreshold, noiseFloor * LOUDNESS.onRatio);
+}
+
+export function loudnessOffThreshold(
+  noiseFloor: number,
+  blastPeak: number,
+  soundOffThreshold: number,
+): number {
+  return Math.max(
+    soundOffThreshold,
+    noiseFloor * LOUDNESS.offRatio,
+    blastPeak * LOUDNESS.dropRatio,
+  );
 }
 
 export function autoStopOptionsForBlast(
@@ -144,20 +191,29 @@ export function advanceAutoStop(
   const opts = resolveOptions(options);
   const next: AutoStopState = { ...state };
   const elapsedSec = (now - startedAt) / 1000;
+  const onThreshold = loudnessOnThreshold(next.noiseFloor, opts.soundOnThreshold);
+  const offThreshold = loudnessOffThreshold(
+    next.noiseFloor,
+    next.blastPeak,
+    opts.soundOffThreshold,
+  );
 
   if (next.soundStartedAt === null) {
-    if (peak >= opts.soundOnThreshold) {
+    if (peak >= onThreshold) {
       if (next.candidateStartedAt === null) next.candidateStartedAt = now;
       if (now - next.candidateStartedAt >= opts.minSoundMs) {
         next.soundStartedAt = next.candidateStartedAt;
         next.candidateStartedAt = null;
         next.silenceStartedAt = null;
+        next.blastPeak = Math.max(next.blastPeak, peak);
       }
     } else {
       next.candidateStartedAt = null;
+      next.noiseFloor = adaptNoiseFloor(next.noiseFloor, peak);
     }
-  } else if (peak >= opts.soundOffThreshold) {
+  } else if (peak >= offThreshold) {
     next.silenceStartedAt = null;
+    next.blastPeak = Math.max(next.blastPeak, peak);
   } else if (next.silenceStartedAt === null) {
     next.silenceStartedAt = now;
   }

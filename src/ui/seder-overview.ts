@@ -66,7 +66,13 @@ function renderRoundExplainer(c: MessageCatalog, locale: Locale): HTMLElement {
   const wrap = el('section', 'seder-card');
   wrap.appendChild(el('h2', '', c.sederRoundTitle));
   wrap.appendChild(el('p', 'instructions', c.sederRoundBlurb));
-  wrap.appendChild(renderRoundRow(SET_GROUPS.slice(0, 3), c, locale));
+  wrap.appendChild(
+    renderRoundRow(
+      SET_GROUPS.filter((s) => s.section === 'malchuyot'),
+      c,
+      locale,
+    ),
+  );
   return wrap;
 }
 

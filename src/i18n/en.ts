@@ -137,7 +137,7 @@ export const en = {
   sederTotalLine: (p: { n: number }) => `${p.n} kolos`,
   sederRoundTitle: 'Each round of 10',
   sederRoundBlurb:
-    'Tashrat (4) + Tashat (3) + Tarat (3). Tashrat still counts as four when shevarim-teruah is one breath.',
+    'Tashrat (4) + Tashat (3) + Tarat (3). Sitting and the first 30 after musaf blow each type three times in a row. Musaf and the last 10 after musaf are one of each. Tashrat still counts as four when shevarim-teruah is one breath.',
   sederNotesTitle: 'The notes',
   sederNoteTekiah:
     'One long blast. Tashrat ≥ 18 teruah units and ≥ that set’s middle. Tashat and Tarat ≥ 9 units and ≥ that set’s middle. No maximum.',
