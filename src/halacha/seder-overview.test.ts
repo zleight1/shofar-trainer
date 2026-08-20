@@ -26,21 +26,22 @@ describe('seder overview model', () => {
     expect(practiceKolos()).toBe(totalKolos());
   });
 
-  it('uses one breath only for sitting tashrat, and marks both gedolah closings', () => {
+  it('uses one breath only for sitting tashrat, and marks gedolah closings', () => {
     const blocks = overviewBlocks();
     const sitting = blocks.find((b) => b.section === 'sitting')!;
     const malchuyot = blocks.find((b) => b.section === 'malchuyot')!;
     const shofarot = blocks.find((b) => b.section === 'shofarot')!;
     const after = blocks.find((b) => b.section === 'afterMusaf')!;
     expect(sitting.stBreath).toBe('none');
-    expect(sitting.rounds).toHaveLength(3);
+    expect(sitting.closingGedolah).toBe(true);
+    expect(sitting.rounds.map((round) => round.kolos)).toEqual([12, 9, 9]);
     expect(malchuyot.stBreath).toBe('between');
-    expect(shofarot.closingGedolah).toBe(true);
-    expect(after.closingGedolah).toBe(true);
-    expect(after.rounds).toHaveLength(4);
     expect(malchuyot.closingGedolah).toBe(false);
-    expect(sitting.rounds.every((round) => round.kolos === 10)).toBe(true);
-    expect(after.rounds.every((round) => round.kolos === 10)).toBe(true);
+    expect(malchuyot.rounds.map((round) => round.kolos)).toEqual([10]);
+    expect(shofarot.closingGedolah).toBe(true);
+    expect(after.stBreath).toBe('between');
+    expect(after.closingGedolah).toBe(true);
+    expect(after.rounds.map((round) => round.kolos)).toEqual([12, 9, 9, 10]);
   });
 
   it('expands one-breath tashrat to four sounding kolos without a breath mark', () => {
@@ -57,9 +58,11 @@ describe('seder overview model', () => {
     expect(kolos[1].breathAfter).toBe(true);
   });
 
-  it('ends shofarot and the last after-musaf tarat with tekiah gedolah', () => {
+  it('ends sitting, shofarot, and the last after-musaf tarat with tekiah gedolah', () => {
+    const sitting = SET_GROUPS.find((s) => s.id === 'sit-3-tt')!;
     const shofarot = SET_GROUPS.find((s) => s.id === 'shofarot-tt')!;
     const last = SET_GROUPS.find((s) => s.id === 'after-4-tt')!;
+    expect(overviewKolosForSet(sitting).at(-1)?.type).toBe('tekiah_gedolah');
     expect(overviewKolosForSet(shofarot).at(-1)?.type).toBe('tekiah_gedolah');
     expect(overviewKolosForSet(last).at(-1)?.type).toBe('tekiah_gedolah');
   });

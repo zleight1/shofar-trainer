@@ -155,7 +155,7 @@ describe('buildSessionKols', () => {
     expect(takes.reduce((sum, t) => sum + kolCountForSet(t.set), 0)).toBe(100);
     expect(kols).toHaveLength(100);
     expect(kols.filter((k) => k.section === 'sitting')).toHaveLength(30);
-    expect(kols.filter((k) => k.type === 'tekiah_gedolah')).toHaveLength(2);
+    expect(kols.filter((k) => k.type === 'tekiah_gedolah')).toHaveLength(3);
     expect(passedSetCount(takes)).toEqual({ passed: 30, total: 30 });
     expect(illuminationRecordFromTakes(takes).kols).toHaveLength(100);
     expect(illuminationRecordFromTakes(takes).passed).toBe(30);

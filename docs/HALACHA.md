@@ -36,11 +36,11 @@ The app follows the common Ashkenazi Rosh Hashana seder of **100 blasts**. Calib
 
 | Section | Sets | Tashrat breath | Closing blast |
 |---------|------|----------------|---------------|
-| Sitting (first 30) | Tashrat + Tashat + Tarat ×3 | One breath | Ordinary tekiah |
+| Sitting (first 30) | Tashrat ×3, then Tashat ×3, then Tarat ×3 | One breath | Last tekiah is gedolah |
 | Musaf Malchuyot | One round of 10 | Breathe between | Ordinary tekiah |
 | Musaf Zichronot | One round of 10 | Breathe between | Ordinary tekiah |
 | Musaf Shofarot | One round of 10 | Breathe between | Last tekiah is gedolah |
-| After musaf | Tashrat + Tashat + Tarat ×4 | Breathe between | Last tekiah of the day is gedolah |
+| After musaf | Tashrat ×3, Tashat ×3, Tarat ×3, then one round of 10 | Breathe between | Last tekiah of the day is gedolah |
 
 Kol count: Tashrat = 4 (also when shevarim-teruah is one take), Tashat = 3, Tarat = 3.
 

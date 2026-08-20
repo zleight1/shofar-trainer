@@ -109,6 +109,46 @@ export interface SetGroup {
   closingGedolah?: boolean;
 }
 
+function tashrat(
+  idPrefix: string,
+  section: SederSection,
+  stBreath: ShevarimTeruahBreath,
+): SetGroup {
+  return {
+    id: `${idPrefix}-tst`,
+    label: `${idPrefix} tashrat`,
+    stepIds: [`${idPrefix}-tst-t1`, `${idPrefix}-tst-st`, `${idPrefix}-tst-t2`],
+    pattern: 'tst',
+    section,
+    stBreath,
+  };
+}
+
+function tashat(idPrefix: string, section: SederSection): SetGroup {
+  return {
+    id: `${idPrefix}-tsh`,
+    label: `${idPrefix} tashat`,
+    stepIds: [`${idPrefix}-tsh-t1`, `${idPrefix}-tsh-sh`, `${idPrefix}-tsh-t2`],
+    pattern: 'tsh',
+    section,
+  };
+}
+
+function tarat(
+  idPrefix: string,
+  section: SederSection,
+  opts: { lastGedolah?: boolean } = {},
+): SetGroup {
+  return {
+    id: `${idPrefix}-tt`,
+    label: `${idPrefix} tarat`,
+    stepIds: [`${idPrefix}-tt-t1`, `${idPrefix}-tt-tr`, `${idPrefix}-tt-t2`],
+    pattern: 'tt',
+    section,
+    closingGedolah: opts.lastGedolah,
+  };
+}
+
 function roundOfTen(
   idPrefix: string,
   section: SederSection,
@@ -116,43 +156,35 @@ function roundOfTen(
   opts: { lastGedolah?: boolean } = {},
 ): SetGroup[] {
   return [
-    {
-      id: `${idPrefix}-tst`,
-      label: `${idPrefix} tashrat`,
-      stepIds: [`${idPrefix}-tst-t1`, `${idPrefix}-tst-st`, `${idPrefix}-tst-t2`],
-      pattern: 'tst',
-      section,
-      stBreath,
-    },
-    {
-      id: `${idPrefix}-tsh`,
-      label: `${idPrefix} tashat`,
-      stepIds: [`${idPrefix}-tsh-t1`, `${idPrefix}-tsh-sh`, `${idPrefix}-tsh-t2`],
-      pattern: 'tsh',
-      section,
-    },
-    {
-      id: `${idPrefix}-tt`,
-      label: `${idPrefix} tarat`,
-      stepIds: [`${idPrefix}-tt-t1`, `${idPrefix}-tt-tr`, `${idPrefix}-tt-t2`],
-      pattern: 'tt',
-      section,
-      closingGedolah: opts.lastGedolah,
-    },
+    tashrat(idPrefix, section, stBreath),
+    tashat(idPrefix, section),
+    tarat(idPrefix, section, opts),
+  ];
+}
+
+/** Tashrat ×3, Tashat ×3, Tarat ×3 (30 kolos). */
+function groupedThirty(
+  idBase: string,
+  section: SederSection,
+  stBreath: ShevarimTeruahBreath,
+  opts: { lastGedolah?: boolean } = {},
+): SetGroup[] {
+  return [
+    ...[1, 2, 3].map((n) => tashrat(`${idBase}-${n}`, section, stBreath)),
+    ...[1, 2, 3].map((n) => tashat(`${idBase}-${n}`, section)),
+    ...[1, 2, 3].map((n) =>
+      tarat(`${idBase}-${n}`, section, n === 3 ? opts : {}),
+    ),
   ];
 }
 
 /** 100 kolos: sitting 30 + musaf 30 + after musaf 40. */
 export const SET_GROUPS: SetGroup[] = [
-  ...roundOfTen('sit-1', 'sitting', 'none'),
-  ...roundOfTen('sit-2', 'sitting', 'none'),
-  ...roundOfTen('sit-3', 'sitting', 'none'),
+  ...groupedThirty('sit', 'sitting', 'none', { lastGedolah: true }),
   ...roundOfTen('malchuyot', 'malchuyot', 'between'),
   ...roundOfTen('zichronot', 'zichronot', 'between'),
   ...roundOfTen('shofarot', 'shofarot', 'between', { lastGedolah: true }),
-  ...roundOfTen('after-1', 'afterMusaf', 'between'),
-  ...roundOfTen('after-2', 'afterMusaf', 'between'),
-  ...roundOfTen('after-3', 'afterMusaf', 'between'),
+  ...groupedThirty('after', 'afterMusaf', 'between'),
   ...roundOfTen('after-4', 'afterMusaf', 'between', { lastGedolah: true }),
 ];
 

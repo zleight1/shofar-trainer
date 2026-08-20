@@ -29,15 +29,54 @@ describe('100-kol Rosh Hashana seder', () => {
     expect(laterTst.every((s) => s.stBreath === 'between')).toBe(true);
   });
 
-  it('closes shofarot and the last after-musaf tarat with tekiah gedolah', () => {
+  it('groups sitting as tashrat ×3, tashat ×3, tarat ×3 ending gedolah', () => {
+    const sitting = SET_GROUPS.filter((s) => s.section === 'sitting');
+    expect(sitting.map((s) => s.pattern)).toEqual([
+      'tst',
+      'tst',
+      'tst',
+      'tsh',
+      'tsh',
+      'tsh',
+      'tt',
+      'tt',
+      'tt',
+    ]);
+    expect(sitting.at(-1)?.id).toBe('sit-3-tt');
+    expect(sitting.at(-1)?.closingGedolah).toBe(true);
+    expect(sitting.slice(0, -1).every((s) => !s.closingGedolah)).toBe(true);
+    expect(guidedStepsForSet(sitting.at(-1)!).at(-1)?.type).toBe('tekiah_gedolah');
+  });
+
+  it('groups after musaf as thirty by type then a round of ten ending gedolah', () => {
+    const after = SET_GROUPS.filter((s) => s.section === 'afterMusaf');
+    expect(after.map((s) => s.pattern)).toEqual([
+      'tst',
+      'tst',
+      'tst',
+      'tsh',
+      'tsh',
+      'tsh',
+      'tt',
+      'tt',
+      'tt',
+      'tst',
+      'tsh',
+      'tt',
+    ]);
+    expect(after.filter((s) => s.closingGedolah).map((s) => s.id)).toEqual(['after-4-tt']);
+    expect(guidedStepsForSet(after.at(-1)!).at(-1)?.type).toBe('tekiah_gedolah');
+    const ordinaryTt = SET_GROUPS.find((s) => s.id === 'after-3-tt')!;
+    expect(ordinaryTt.closingGedolah).toBeFalsy();
+    expect(guidedStepsForSet(ordinaryTt).at(-1)?.type).toBe('tekiah');
+  });
+
+  it('closes sitting, shofarot, and the last after-musaf tarat with tekiah gedolah', () => {
     const closing = SET_GROUPS.filter((s) => s.closingGedolah);
-    expect(closing.map((s) => s.id)).toEqual(['shofarot-tt', 'after-4-tt']);
+    expect(closing.map((s) => s.id)).toEqual(['sit-3-tt', 'shofarot-tt', 'after-4-tt']);
     for (const set of closing) {
       const steps = guidedStepsForSet(set);
       expect(steps.at(-1)?.type).toBe('tekiah_gedolah');
     }
-    const ordinaryTt = SET_GROUPS.find((s) => s.id === 'after-1-tt')!;
-    expect(ordinaryTt.closingGedolah).toBeFalsy();
-    expect(guidedStepsForSet(ordinaryTt).at(-1)?.type).toBe('tekiah');
   });
 });
